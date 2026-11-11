@@ -1,0 +1,51 @@
+{
+  "name": "ruai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc -b",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "pinia": "^4.1.0",
+    "three": "^0.187.0",
+    "vue": "^3.5.44",
+    "vue-i18n": "^11.4.18",
+    "vue-router": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.5.1",
+    "@vue/tsconfig": "^0.9.1",
+    "autoprefixer": "^10.6.2",
+    "eslint": "^10.14.0",
+    "eslint-plugin-vue": "^10.12.1",
+    "jsdom": "^29.1.1",
+    "postcss": "^8.5.32",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0",
+    "vue-tsc": "^3.3.14"
+  },
+  "description": "ruAI — AI-ассистент: лендинг, чат, оплата (frontend)",
+  "license": "SEE LICENSE IN LICENSE",
+  "author": "Boris Stankov",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/undemorbe/ruAI.git"
+  }
+}

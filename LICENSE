@@ -1,0 +1,66 @@
+ruAI — Non-Commercial Educational License
+Copyright (c) 2026 Boris Stankov. All rights reserved except as stated below.
+
+1. Permitted use
+   You may view, copy, run, modify and share this software and its source code
+   (the "Software") for personal study, teaching, research and other
+   non-commercial educational purposes, provided that:
+   a) you keep this license and the copyright notice above in all copies and
+      substantial portions of the Software;
+   b) you give clear attribution to the author — "Boris Stankov" — together with
+      a link to the original repository, in your work, publication, course
+      material or project description;
+   c) modified versions are marked as changed.
+
+2. Prohibited use
+   Any commercial use by anyone other than the copyright holder is prohibited
+   without prior written permission of the author. Commercial use includes, but
+   is not limited to: selling or licensing the Software or derivatives; using it
+   to provide paid products or services; running it as a public product or
+   service that generates revenue (subscriptions, advertising, payments); and
+   using its design, code or content in client work.
+
+3. No warranty
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+   OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
+
+4. Third-party components
+   Dependencies (Vue, three.js, fonts and others) remain under their own
+   licenses.
+
+To request commercial permission, contact the author through the repository.
+
+---------------------------------------------------------------------------
+
+ruAI — Лицензия на некоммерческое учебное использование
+Copyright (c) 2026 Борис Станков (Boris Stankov). Все права защищены, кроме
+перечисленных ниже.
+
+1. Разрешено
+   Просматривать, копировать, запускать, изменять и распространять программу и
+   её исходный код в личных учебных, преподавательских, исследовательских и
+   иных некоммерческих образовательных целях при условии, что:
+   а) сохраняется текст этой лицензии и уведомление об авторских правах;
+   б) указывается автор — «Boris Stankov» — и ссылка на исходный репозиторий в
+      работе, публикации, учебном материале или описании проекта;
+   в) изменённые версии помечаются как изменённые.
+
+2. Запрещено
+   Любое коммерческое использование кем-либо, кроме правообладателя, без
+   предварительного письменного разрешения автора. В том числе: продажа или
+   лицензирование программы и производных работ; использование для платных
+   продуктов и услуг; запуск как публичного сервиса, приносящего доход
+   (подписки, реклама, платежи); использование дизайна, кода или текстов в
+   работах для заказчиков.
+
+3. Отказ от гарантий
+   Программа предоставляется «как есть», без каких-либо гарантий. Автор не
+   несёт ответственности за любой ущерб, связанный с её использованием.
+
+4. Сторонние компоненты
+   Зависимости (Vue, three.js, шрифты и другие) распространяются на условиях
+   собственных лицензий.
+
+При разночтениях английская и русская версии имеют равную силу; спорные места
+толкуются в пользу запрета коммерческого использования.
