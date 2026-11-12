@@ -31,7 +31,7 @@ const renewText = computed(() => {
     <p class="pc__tag">{{ plan.tagline }}</p>
 
     <RouterLink :to="{ name: 'checkout', params: { plan: plan.id }, query: { tier: plan.tier } }" class="btn btn--ink btn--block">
-      Получить доступ на {{ plan.title }}
+      Получить доступ на {{ plan.title.replace(/неделя$/, 'неделю') }}
     </RouterLink>
 
     <ul class="pc__list">
