@@ -42,7 +42,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "author": "Boris Stankov",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "repository": {
     "type": "git",
