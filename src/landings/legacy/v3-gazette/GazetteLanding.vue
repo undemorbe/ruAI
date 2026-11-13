@@ -6,11 +6,11 @@ import { getPlans } from '@/content/plans'
 import { useGoogleFont } from '@/lib/fonts'
 import { formatPrice } from '@/lib/format'
 import { vReveal } from '@/lib/reveal'
-import LiveFeatures from '../shared/LiveFeatures.vue'
-import QuietFooter from '../shared/QuietFooter.vue'
-import SentenceCta from '../shared/SentenceCta.vue'
-import TileFaq from '../shared/TileFaq.vue'
-import { useTyping } from '../shared/useTyping'
+import LiveFeatures from '../../shared/LiveFeatures.vue'
+import QuietFooter from '../../shared/QuietFooter.vue'
+import SentenceCta from '../../shared/SentenceCta.vue'
+import TileFaq from '../../shared/TileFaq.vue'
+import { useTyping } from '../../shared/useTyping'
 
 /**
  * Variant 3 — "The product performs".

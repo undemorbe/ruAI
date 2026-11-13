@@ -1,30 +1,30 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import StyleSwitcher from '@/components/landing/StyleSwitcher.vue'
-import { DEFAULT_VARIANT, VARIANTS } from '@/landings/registry'
-import { storage } from '@/lib/storage'
+import WordsLanding from '@/landings/words/WordsLanding.vue'
+import { VARIANTS } from '@/landings/legacy/registry'
+
+const StyleSwitcher = defineAsyncComponent(() => import('@/landings/legacy/StyleSwitcher.vue'))
 
 const route = useRoute()
 const router = useRouter()
 
-/** Variant priority: ?v= in URL → last choice in localStorage → default. */
-const current = computed(() => {
-  const q = Number(route.query.v)
-  if (VARIANTS.some((v) => v.id === q)) return q
-  const saved = storage.get<number>('ruai.landing', DEFAULT_VARIANT)
-  return VARIANTS.some((v) => v.id === saved) ? saved : DEFAULT_VARIANT
-})
-const variant = computed(() => VARIANTS.find((v) => v.id === current.value)!)
+/** The main landing is «Слова из частиц». /?v=<id> previews an archived direction (src/landings/legacy). */
+const legacy = computed(() => VARIANTS.find((v) => v.id === Number(route.query.v)) ?? null)
 
-function pick(id: number) {
-  storage.set('ruai.landing', id)
-  router.replace({ query: { ...route.query, v: String(id) } })
+function pick(id: number | null) {
+  const query = { ...route.query }
+  if (id === null) delete query.v
+  else query.v = String(id)
+  router.replace({ query })
   window.scrollTo({ top: 0 })
 }
 </script>
 
 <template>
-  <component :is="variant.component" :key="variant.id" />
-  <StyleSwitcher :current="current" @pick="pick" />
+  <template v-if="legacy">
+    <component :is="legacy.component" :key="legacy.id" />
+    <StyleSwitcher :current="legacy.id" @pick="pick" />
+  </template>
+  <WordsLanding v-else />
 </template>

@@ -5,9 +5,9 @@ import { getPlans } from '@/content/plans'
 import { useGoogleFont } from '@/lib/fonts'
 import { formatPrice } from '@/lib/format'
 import { vReveal } from '@/lib/reveal'
-import ChatFragment from '../shared/ChatFragment.vue'
-import SentenceCta from '../shared/SentenceCta.vue'
-import { useTyping } from '../shared/useTyping'
+import ChatFragment from '../../shared/ChatFragment.vue'
+import SentenceCta from '../../shared/SentenceCta.vue'
+import { useTyping } from '../../shared/useTyping'
 import type { NebulaScene } from './NebulaScene'
 
 /**

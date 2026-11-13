@@ -12,7 +12,7 @@ import TileFaq from '../shared/TileFaq.vue'
 import type { WordsScene } from './WordsScene'
 
 /**
- * Variant 6 — "Answers are made of words".
+ * Main landing — "Answers are made of words" (monochrome).
  * Idea: ruAI's output is Russian text, so the hero is text as matter — 14 000 particles that
  * assemble into what ruAI writes. The visitor can scatter them with the pointer or type their own word.
  */
@@ -106,8 +106,8 @@ onMounted(async () => {
       quality: small ? 'low' : 'high',
       reducedMotion: reduced,
       font: DISPLAY,
-      ink: '#f6e9d6',
-      hot: '#ff6a3d',
+      ink: '#f5f5f5',
+      hot: '#6e6e6e',
     })
     scene.value.setWord(WORDS[0]!.w)
     scene.value.start()
@@ -202,13 +202,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .v6 {
-  --bg: #22080c;
-  --surface: #33121a;
-  --ink: #f6e9d6;
-  --muted: #c9b5a4;
-  --accent: #ff6a3d;
-  --accent-ink: #22080c;
-  --accent-hover: #ff8a63;
+  /* monochrome: black ground, white type; contrast does the accenting */
+  --bg: #0a0a0a;
+  --surface: #1c1c1c;
+  --ink: #f5f5f5;
+  --muted: #a6a6a6;
+  --accent: #f5f5f5;
+  --accent-ink: #0a0a0a;
+  --accent-hover: #d6d6d6;
   --f-display: 'Dela Gothic One', 'Arial Black', sans-serif;
   --f-text: 'Commissioner', 'Golos Text', system-ui, sans-serif;
   --margin: clamp(16px, 3vw, 44px);
@@ -216,18 +217,18 @@ onBeforeUnmount(() => {
   --h-weight: 400;
   --h-case: none;
   --sc-weight: 400;
-  --plan-1: #f6e9d6;
-  --plan-1-ink: #22080c;
-  --plan-2: #ff6a3d;
-  --plan-2-ink: #22080c;
-  --plan-3: #4a1a24;
-  --plan-3-ink: #f6e9d6;
-  --ui-bg: #f6e9d6;
-  --ui-ink: #22080c;
-  --ui-soft: #7a5a52;
-  --ui-bubble: #ead8c1;
-  --ui-accent: #ff6a3d;
-  --ui-accent-ink: #22080c;
+  --plan-1: #1f1f1f;
+  --plan-1-ink: #f5f5f5;
+  --plan-2: #f5f5f5;
+  --plan-2-ink: #0a0a0a;
+  --plan-3: #383838;
+  --plan-3-ink: #f5f5f5;
+  --ui-bg: #f5f5f5;
+  --ui-ink: #0a0a0a;
+  --ui-soft: #6b6b6b;
+  --ui-bubble: #e3e3e3;
+  --ui-accent: #0a0a0a;
+  --ui-accent-ink: #f5f5f5;
   --ui-font: 'Commissioner', system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
@@ -285,7 +286,7 @@ onBeforeUnmount(() => {
   transition: background-color 0.2s;
 }
 .nav__cta:hover {
-  background: var(--accent);
+  background: var(--accent-hover);
 }
 
 /* hero */
@@ -384,7 +385,7 @@ onBeforeUnmount(() => {
   font: 500 16px var(--f-text);
 }
 .own__in::placeholder {
-  color: #8f7569;
+  color: #767676;
 }
 .own__in:focus-visible {
   outline: 2px solid var(--accent);
@@ -400,11 +401,13 @@ onBeforeUnmount(() => {
   transition: background-color 0.2s;
 }
 .own__go:hover {
-  background: var(--accent);
+  background: var(--accent-hover);
 }
 .own__ask {
   margin-top: 10px;
-  color: var(--accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   font-weight: 500;
   text-align: left;
 }
@@ -423,7 +426,7 @@ onBeforeUnmount(() => {
   padding: clamp(28px, 3.5vw, 48px) 0;
 }
 .row + .row {
-  border-top: 1px solid #4a1f28;
+  border-top: 1px solid #262626;
 }
 .row__w {
   margin: 0;
@@ -432,7 +435,8 @@ onBeforeUnmount(() => {
   transition: color 0.3s;
 }
 .row:hover .row__w {
-  color: var(--accent);
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--ink);
 }
 .row__q {
   width: fit-content;
@@ -449,7 +453,9 @@ onBeforeUnmount(() => {
   font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem);
 }
 .row__link {
-  color: var(--accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   font-weight: 500;
 }
 .row__link:hover {
@@ -482,7 +488,7 @@ onBeforeUnmount(() => {
   font: 400 clamp(1.25rem, 1rem + 0.9vw, 1.75rem) / 1.25 var(--f-display);
 }
 .said__q footer {
-  color: #6b4a45;
+  color: #555;
   font-size: 0.9375rem;
 }
 

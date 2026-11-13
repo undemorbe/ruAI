@@ -4,9 +4,9 @@ import { faq, reviews } from '@/content/landing'
 import { getPlans } from '@/content/plans'
 import { useGoogleFont } from '@/lib/fonts'
 import { formatPrice } from '@/lib/format'
-import CallResponse from '../shared/CallResponse.vue'
-import ChatFragment from '../shared/ChatFragment.vue'
-import QuietFooter from '../shared/QuietFooter.vue'
+import CallResponse from '../../shared/CallResponse.vue'
+import ChatFragment from '../../shared/ChatFragment.vue'
+import QuietFooter from '../../shared/QuietFooter.vue'
 
 /**
  * Variant 2 — "The quiet instrument", dark.

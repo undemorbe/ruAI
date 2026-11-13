@@ -4,8 +4,8 @@ import { faq, reviews } from '@/content/landing'
 import { getPlans } from '@/content/plans'
 import { useGoogleFont } from '@/lib/fonts'
 import { vReveal } from '@/lib/reveal'
-import ChatFragment from '../shared/ChatFragment.vue'
-import StepPlans from '../shared/StepPlans.vue'
+import ChatFragment from '../../shared/ChatFragment.vue'
+import StepPlans from '../../shared/StepPlans.vue'
 
 /**
  * Variant 5 — "Dressed as something else": an AI chat sold like a streetwear drop.

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { VARIANTS } from '@/landings/registry'
+import { VARIANTS } from './registry'
 
 defineProps<{ current: number }>()
-const emit = defineEmits<{ pick: [id: number] }>()
+const emit = defineEmits<{ pick: [id: number | null] }>()
 const collapsed = ref(false)
 </script>
 
@@ -13,7 +13,10 @@ const collapsed = ref(false)
       {{ collapsed ? 'Стиль' : '×' }}
     </button>
     <template v-if="!collapsed">
-      <span class="sw__label">Стиль</span>
+      <span class="sw__label">Архив</span>
+      <button class="sw__opt" @click="emit('pick', null)">
+        <span class="sw__name">← Основной</span>
+      </button>
       <button
         v-for="v in VARIANTS"
         :key="v.id"
@@ -48,7 +51,7 @@ const collapsed = ref(false)
   -webkit-backdrop-filter: blur(16px) saturate(1.5);
   backdrop-filter: blur(16px) saturate(1.5);
   color: #f4f1ea;
-  font: 500 13px/1 'Onest', system-ui, sans-serif;
+  font: 500 13px/1 'Golos Text', system-ui, sans-serif;
   box-shadow:
     0 0 0 1px rgb(255 255 255 / 0.08),
     0 12px 40px -8px rgb(0 0 0 / 0.5);

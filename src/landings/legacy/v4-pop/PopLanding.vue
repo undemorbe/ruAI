@@ -3,9 +3,9 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { reviews, stages } from '@/content/landing'
 import { useGoogleFont } from '@/lib/fonts'
 import { vReveal } from '@/lib/reveal'
-import SentenceCta from '../shared/SentenceCta.vue'
-import StepPlans from '../shared/StepPlans.vue'
-import TileFaq from '../shared/TileFaq.vue'
+import SentenceCta from '../../shared/SentenceCta.vue'
+import StepPlans from '../../shared/StepPlans.vue'
+import TileFaq from '../../shared/TileFaq.vue'
 
 /**
  * Variant 4 — "Colour chapters".
