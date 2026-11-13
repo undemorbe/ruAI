@@ -13,8 +13,8 @@ import type { WordsScene } from './WordsScene'
 
 /**
  * Main landing — "Answers are made of words" (monochrome).
- * Idea: ruAI's output is Russian text, so the hero is text as matter — 14 000 particles that
- * assemble into what ruAI writes. The visitor can scatter them with the pointer or type their own word.
+ * Idea: ChatGPT's output is Russian text, so the hero is text as matter — 14 000 particles that
+ * assemble into what ChatGPT writes. The visitor can scatter them with the pointer or type their own word.
  */
 useGoogleFont('family=Dela+Gothic+One&family=Commissioner:wght@400;500;600')
 const DISPLAY = '"Dela Gothic One", "Arial Black", sans-serif'
@@ -23,7 +23,7 @@ const router = useRouter()
 const week = getPlans('text')[0]!
 
 const WORDS = [
-  { w: 'ruAI', cap: 'Нейросеть, которая отвечает по-русски' },
+  { w: 'ChatGPT', cap: 'Нейросеть, которая отвечает по-русски' },
   { w: 'письмо', cap: 'Напишет письмо, которое не стыдно отправить' },
   { w: 'урок', cap: 'Объяснит тему так, чтобы стало понятно' },
   { w: 'маршрут', cap: 'Спланирует выходные по часам' },
@@ -73,7 +73,7 @@ function submitOwn() {
   if (!w) return
   ownMode = true
   stopCycle()
-  show(w.slice(0, 14), `Спросить ruAI про «${w}»`)
+  show(w.slice(0, 14), `Спросить ChatGPT про «${w}»`)
 }
 function askOwn() {
   const w = own.value.trim() || shown.value
@@ -99,7 +99,7 @@ onMounted(async () => {
   const small = matchMedia('(max-width: 760px)').matches || (navigator.hardwareConcurrency ?? 8) <= 4
   try {
     // glyphs must be loaded before they are sampled into particles
-    await Promise.race([document.fonts.load(`400 100px ${DISPLAY}`, 'ruAIпиьмоурккдмшВPN'), new Promise((r) => setTimeout(r, 2500))])
+    await Promise.race([document.fonts.load(`400 100px ${DISPLAY}`, 'ChatGPTпиьмоурккдмшВN'), new Promise((r) => setTimeout(r, 2500))])
     const { WordsScene } = await import('./WordsScene')
     if (!canvas.value) return
     scene.value = new WordsScene(canvas.value, {
@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="v6">
     <header class="nav">
-      <RouterLink to="/" class="nav__mark">ruAI</RouterLink>
+      <RouterLink to="/" class="nav__mark">ChatGPT</RouterLink>
       <nav class="nav__links" aria-label="Разделы">
         <a href="#words">Что умеет</a>
         <a href="#price">Цены</a>
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
             <input id="own-in" v-model="own" class="own__in" maxlength="14" autocomplete="off" placeholder="например, борщ" />
             <button class="own__go" type="submit">Собрать</button>
           </div>
-          <button v-if="own.trim()" type="button" class="own__ask" @click="askOwn">Спросить ruAI про «{{ own.trim() }}» →</button>
+          <button v-if="own.trim()" type="button" class="own__ask" @click="askOwn">Спросить ChatGPT про «{{ own.trim() }}» →</button>
         </form>
       </div>
     </section>

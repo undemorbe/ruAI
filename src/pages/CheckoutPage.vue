@@ -117,7 +117,7 @@ async function pay() {
         <aside class="sum" aria-label="Ваш заказ">
           <template v-if="plan">
             <span class="sum__k">Ваш заказ</span>
-            <h2>ruAI · {{ plan.title }}</h2>
+            <h2>ChatGPT · {{ plan.title }}</h2>
             <p class="sum__tier">{{ tier === 'media' ? 'С файлами и изображениями' : 'Без изображений' }}</p>
             <ul>
               <li v-for="f in plan.features" :key="f.text"><Icon name="check" :size="16" />{{ f.text }}</li>

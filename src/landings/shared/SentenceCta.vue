@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 
 /** "A sentence with a blank": the blank is the question field, the last word submits to the chat. */
 const props = withDefaults(defineProps<{ before?: string; after?: string; verb?: string; placeholder?: string; note?: string }>(), {
-  before: 'Спросите ruAI про',
+  before: 'Спросите ChatGPT про',
   after: 'и получите ответ —',
   verb: 'спросить',
   placeholder: 'ипотеку',

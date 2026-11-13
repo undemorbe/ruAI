@@ -120,7 +120,7 @@ function select(id: string | null) {
         </div>
       </template>
 
-      <p class="disclaimer">ruAI — это ИИ и может ошибаться. Проверяйте важную информацию.</p>
+      <p class="disclaimer">Нейросеть может ошибаться — проверяйте важное. Независимый сервис, не связан с OpenAI.</p>
     </main>
 
     <PaywallDialog v-if="paywall" :feature="paywall" @close="paywall = null" />

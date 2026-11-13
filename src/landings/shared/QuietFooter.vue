@@ -1,12 +1,12 @@
 <template>
   <footer class="qf">
-    <span class="qf__what">ruAI — нейросеть без VPN</span>
+    <span class="qf__what">ChatGPT — нейросеть без VPN</span>
     <nav class="qf__links" aria-label="Подвал">
       <RouterLink to="/chat">Чат</RouterLink>
       <RouterLink to="/pricing">Тарифы</RouterLink>
       <a href="mailto:support@ruai.example">Поддержка</a>
     </nav>
-    <span class="qf__legal">© {{ new Date().getFullYear() }} · <a href="#" @click.prevent>Конфиденциальность</a></span>
+    <span class="qf__legal">© {{ new Date().getFullYear() }} · <a href="#" @click.prevent>Конфиденциальность</a><br />Независимый сервис, не связан с OpenAI. ChatGPT — товарный знак OpenAI.</span>
   </footer>
 </template>
 

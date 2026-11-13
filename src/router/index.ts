@@ -8,12 +8,12 @@ export const router = createRouter({
     return { top: 0 }
   },
   routes: [
-    { path: '/', name: 'landing', component: () => import('@/pages/LandingPage.vue'), meta: { title: 'ruAI — нейросеть без VPN' } },
-    { path: '/chat/:id?', name: 'chat', component: () => import('@/pages/ChatPage.vue'), meta: { title: 'Чат — ruAI' } },
-    { path: '/pricing', name: 'pricing', component: () => import('@/pages/PricingPage.vue'), meta: { title: 'Тарифы — ruAI' } },
-    { path: '/checkout/:plan', name: 'checkout', component: () => import('@/pages/CheckoutPage.vue'), meta: { title: 'Оплата — ruAI' } },
-    { path: '/payment/result', name: 'payment-result', component: () => import('@/pages/PaymentResultPage.vue'), meta: { title: 'Статус оплаты — ruAI' } },
-    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { title: 'Страница не найдена — ruAI' } },
+    { path: '/', name: 'landing', component: () => import('@/pages/LandingPage.vue'), meta: { title: 'ChatGPT — нейросеть без VPN' } },
+    { path: '/chat/:id?', name: 'chat', component: () => import('@/pages/ChatPage.vue'), meta: { title: 'Чат — ChatGPT' } },
+    { path: '/pricing', name: 'pricing', component: () => import('@/pages/PricingPage.vue'), meta: { title: 'Тарифы — ChatGPT' } },
+    { path: '/checkout/:plan', name: 'checkout', component: () => import('@/pages/CheckoutPage.vue'), meta: { title: 'Оплата — ChatGPT' } },
+    { path: '/payment/result', name: 'payment-result', component: () => import('@/pages/PaymentResultPage.vue'), meta: { title: 'Статус оплаты — ChatGPT' } },
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { title: 'Страница не найдена — ChatGPT' } },
   ],
 })
 

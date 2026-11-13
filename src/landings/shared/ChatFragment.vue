@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * A true-size fragment of the ruAI chat, used as the "picture" of the product on landings.
+ * A true-size fragment of the ChatGPT chat, used as the "picture" of the product on landings.
  * Styled by the host variant's tokens (--ui-*), falls back to a neutral light theme.
  */
 defineProps<{
@@ -23,10 +23,10 @@ defineProps<{
       <p v-for="(m, i) in messages" :key="i" class="cf__msg" :class="`cf__msg--${m.role}`">
         {{ m.text }}<span v-if="caret && i === messages.length - 1 && m.role === 'assistant'" class="cf__caret" aria-hidden="true" />
       </p>
-      <p v-if="typing" class="cf__msg cf__msg--assistant cf__dots" aria-label="ruAI печатает"><i /><i /><i /></p>
+      <p v-if="typing" class="cf__msg cf__msg--assistant cf__dots" aria-label="ChatGPT печатает"><i /><i /><i /></p>
     </div>
     <div v-if="composer !== undefined" class="cf__composer">
-      <span>{{ composer || 'Спросите ruAI' }}</span>
+      <span>{{ composer || 'Спросите ChatGPT' }}</span>
       <b aria-hidden="true">↑</b>
     </div>
   </div>

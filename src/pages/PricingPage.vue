@@ -28,7 +28,7 @@ const TRUST = [
     <AppHeader />
     <main class="wrap">
       <div class="intro">
-        <h1>Тарифы ruAI</h1>
+        <h1>Тарифы ChatGPT</h1>
         <p>Выберите период. Все тарифы — без VPN, на русском и с оплатой российскими картами.</p>
         <TierToggle v-model="billing.tier" />
       </div>

@@ -6,10 +6,9 @@ withDefaults(defineProps<{ size?: number; mark?: boolean }>(), { size: 28, mark:
   <span class="logo" :style="{ '--s': `${size}px` }">
     <svg v-if="mark" class="logo__mark" viewBox="0 0 64 64" aria-hidden="true">
       <rect width="64" height="64" rx="16" fill="currentColor" />
-      <path d="M18 46V18h12a9 9 0 0 1 2 17.8L40 46h-7l-7.4-10H24v10zm6-15h6a4 4 0 0 0 0-8h-6z" class="logo__r" />
-      <circle cx="46" cy="22" r="5" fill="var(--accent, #ff5a36)" />
+      <path d="M15 22a7 7 0 0 1 7-7h20a7 7 0 0 1 7 7v13a7 7 0 0 1-7 7H31l-9 7v-7a7 7 0 0 1-7-7z" class="logo__r" />
     </svg>
-    <span class="logo__word">ru<b>AI</b></span>
+    <span class="logo__word">Chat<b>GPT</b></span>
   </span>
 </template>
 

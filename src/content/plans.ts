@@ -25,7 +25,7 @@ const base = {
   quarter: {
     title: '3 месяца',
     periodDays: 90,
-    tagline: 'Доступ к лучшим функциям и возможностям ruAI',
+    tagline: 'Доступ к лучшим функциям и возможностям ChatGPT',
     features: [
       { icon: 'spark', text: 'Продвинутые исследования и темы' },
       { icon: 'bubble', text: 'Большие проекты и сложные проблемы' },

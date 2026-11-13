@@ -7,7 +7,7 @@ const user = useUserStore()
 
 <template>
   <header class="hdr">
-    <RouterLink to="/" class="hdr__logo" aria-label="ruAI — на главную"><Logo :size="26" /></RouterLink>
+    <RouterLink to="/" class="hdr__logo" aria-label="ChatGPT — на главную"><Logo :size="26" /></RouterLink>
     <nav class="hdr__nav">
       <RouterLink to="/chat" class="hdr__link">Чат</RouterLink>
       <RouterLink to="/pricing" class="hdr__link">Тарифы</RouterLink>

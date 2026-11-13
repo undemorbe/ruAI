@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-/** "Fixed output, live controls": the reader configures a real ruAI answer on the left. */
+/** "Fixed output, live controls": the reader configures a real ChatGPT answer on the left. */
 const tone = ref<'formal' | 'friendly' | 'short'>('formal')
 const length = ref(2)
 const steps = ref(true)
@@ -38,7 +38,7 @@ const letter = computed(() => {
     <div class="lf__stage">
       <article class="lf__out" data-ui aria-live="polite">
         <header class="lf__meta">
-          <span>Ответ ruAI</span>
+          <span>Ответ ChatGPT</span>
           <span>Письмо · {{ letter.body.length }} {{ letter.body.length === 1 ? 'фраза' : 'фразы' }}</span>
         </header>
         <p class="lf__greet">{{ letter.greet }}</p>
@@ -66,7 +66,7 @@ const letter = computed(() => {
 
       <div class="lf__block">
         <p class="lf__claim">Длина без воды</p>
-        <p class="lf__txt">Скажите «короче» — и ruAI выбросит лишнее, а не смысл.</p>
+        <p class="lf__txt">Скажите «короче» — и ChatGPT выбросит лишнее, а не смысл.</p>
         <label class="lf__range">
           <span>Фраз в письме: {{ length + 1 }}</span>
           <input v-model.number="length" type="range" min="0" max="2" step="1" />
