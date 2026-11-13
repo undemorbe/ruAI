@@ -23,7 +23,7 @@ useGoogleFont('family=Tektur:wght@500;700&family=Wix+Madefor+Text:wght@400;500;6
 const LABEL_FONT = '"Tektur", "Arial Narrow", sans-serif'
 
 const router = useRouter()
-const week = getPlans('text')[0]!
+const week = getPlans()[0]!
 
 // ---------- hero: board + screen line ----------
 const canvas = ref<HTMLCanvasElement | null>(null)

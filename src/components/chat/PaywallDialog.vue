@@ -1,24 +1,42 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue'
+import type { LimitCode } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
+import { nextMskMidnight } from '@/lib/limits'
 
-const props = defineProps<{ feature: string | null }>()
+/** Диалог при отказе по лимитам: нет подписки, закончился период или суточный лимит. */
+const props = defineProps<{ code: LimitCode }>()
 const emit = defineEmits<{ close: [] }>()
 
+function untilReset() {
+  const min = Math.max(1, Math.round((nextMskMidnight(new Date()).getTime() - Date.now()) / 60_000))
+  const h = Math.floor(min / 60)
+  return h ? `${h} ч ${min % 60} мин` : `${min} мин`
+}
+
 const copy = computed(() => {
-  switch (props.feature) {
-    case 'files':
-      return { title: 'Файлы — в тарифе с медиа', text: 'Загружайте PDF, документы и таблицы: ChatGPT прочитает, кратко перескажет и ответит на вопросы.' }
-    case 'image':
-      return { title: 'Генерация изображений', text: 'Создавайте иллюстрации, обложки и мемы по текстовому описанию в тарифе «Файлы и изображения».' }
-    case 'voice':
-      return { title: 'Голосовой ввод скоро', text: 'Мы уже работаем над голосовым режимом. Подписчики получат его первыми.' }
+  switch (props.code) {
+    case 'daily_limit':
+      return {
+        title: 'На сегодня запросы закончились',
+        text: `Суточный лимит обновится в 00:00 по Москве — через ${untilReset()}. Остаток за период никуда не денется.`,
+        pay: false,
+      }
+    case 'total_limit':
+    case 'budget':
+      return {
+        title: 'Запросы периода закончились',
+        text: 'Оплатите новый период — счётчик обнулится сразу после оплаты. Все чаты и история остаются на месте.',
+        pay: true,
+      }
     default:
-      return { title: 'Модель доступна в Pro', text: 'Продвинутые модели решают сложные задачи, пишут код и держат длинный контекст.' }
+      return {
+        title: 'Нужна подписка',
+        text: 'Запросы к GPT-OSS-20B доступны по подписке — от 388 ₽ за 7 дней. История чатов сохраняется и после окончания подписки.',
+        pay: true,
+      }
   }
 })
-
-const tier = computed(() => (props.feature === 'files' || props.feature === 'image' ? 'media' : 'text'))
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') emit('close')
@@ -34,8 +52,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       <span class="pw__badge"><Icon name="bolt" :size="22" /></span>
       <h2>{{ copy.title }}</h2>
       <p>{{ copy.text }}</p>
-      <RouterLink :to="{ name: 'pricing', query: { tier } }" class="btn btn--ink btn--block">Посмотреть тарифы</RouterLink>
-      <button class="btn btn--block pw__later" @click="emit('close')">Позже</button>
+      <template v-if="copy.pay">
+        <RouterLink to="/pricing" class="btn btn--ink btn--block">Выбрать период</RouterLink>
+        <button class="btn btn--block pw__later" @click="emit('close')">Позже</button>
+      </template>
+      <button v-else class="btn btn--ink btn--block" @click="emit('close')">Понятно</button>
     </div>
   </div>
 </template>
@@ -76,8 +97,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--ink);
+  color: var(--ink-text);
 }
 h2 {
   margin: 16px 0 8px;

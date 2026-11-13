@@ -2,12 +2,12 @@
 import { computed } from 'vue'
 import type { Plan } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
-import { discountPercent, formatPrice, perDay } from '@/lib/format'
+import { fmt, pricePerRequest } from '@/content/plans'
+import { formatPrice } from '@/lib/format'
 
 const props = defineProps<{ plan: Plan }>()
-const off = computed(() => discountPercent(props.plan.price, props.plan.oldPrice))
 const renewText = computed(() => {
-  const p = { week: 'неделю', month: 'месяц', quarter: 'три месяца' }[props.plan.id]
+  const p = { week: '7 дней', month: '30 дней', quarter: '90 дней' }[props.plan.id]
   return `Через ${p} продление будет происходить автоматически путём списания средств, пока вы не отмените подписку.`
 })
 </script>
@@ -21,17 +21,20 @@ const renewText = computed(() => {
     </header>
 
     <div class="pc__price">
-      <s class="pc__old">{{ formatPrice(plan.oldPrice) }}</s>
       <b class="pc__now">{{ formatPrice(plan.price) }}</b>
       <span class="pc__cur">₽</span>
-      <span v-if="off" class="pc__off">−{{ off }}%</span>
     </div>
-    <p class="pc__day">≈ {{ perDay(plan.price, plan.periodDays) }} ₽ в день</p>
+    <p class="pc__day">≈ {{ String(pricePerRequest(plan)).replace('.', ',') }} ₽ за запрос</p>
+
+    <dl class="pc__quota">
+      <div><dt>Запросов на период</dt><dd>{{ fmt(plan.requestsTotal) }}</dd></div>
+      <div><dt>В сутки, до</dt><dd>{{ fmt(plan.requestsPerDay) }}</dd></div>
+    </dl>
 
     <p class="pc__tag">{{ plan.tagline }}</p>
 
-    <RouterLink :to="{ name: 'checkout', params: { plan: plan.id }, query: { tier: plan.tier } }" class="btn btn--ink btn--block">
-      Получить доступ на {{ plan.title.replace(/неделя$/, 'неделю') }}
+    <RouterLink :to="{ name: 'checkout', params: { plan: plan.id } }" class="btn btn--ink btn--block">
+      Получить доступ на {{ plan.title }}
     </RouterLink>
 
     <ul class="pc__list">
@@ -39,7 +42,7 @@ const renewText = computed(() => {
     </ul>
 
     <footer class="pc__foot">
-      <em>{{ plan.tier === 'text' ? 'Без работы с файлами и изображениями' : 'Включает файлы и изображения' }}</em>
+      <em>Только текст — без загрузки, анализа и генерации изображений</em>
       <small>{{ renewText }}</small>
     </footer>
   </article>
@@ -104,11 +107,6 @@ const renewText = computed(() => {
   gap: 10px;
   margin-top: 24px;
 }
-.pc__old {
-  font-size: 22px;
-  color: var(--text-3);
-  text-decoration-thickness: 2px;
-}
 .pc__now {
   font: 700 46px/1 var(--font-display);
   letter-spacing: -0.03em;
@@ -119,17 +117,33 @@ const renewText = computed(() => {
   color: var(--text-2);
   margin-left: -4px;
 }
-.pc__off {
-  margin-left: auto;
-  align-self: center;
-  color: var(--ok);
-  font-size: 15px;
-  font-weight: 700;
-}
 .pc__day {
   margin: 6px 0 0;
   color: var(--text-3);
   font-size: 13px;
+}
+.pc__quota {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 18px 0 0;
+  border-block: 1px solid var(--line);
+}
+.pc__quota div {
+  padding: 12px 0;
+}
+.pc__quota div + div {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+.pc__quota dt {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pc__quota dd {
+  margin: 2px 0 0;
+  font: 700 24px/1.1 var(--font-display);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 .pc__tag {
   min-height: 3em;

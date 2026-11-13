@@ -20,7 +20,7 @@ useGoogleFont('family=Dela+Gothic+One&family=Commissioner:wght@400;500;600')
 const DISPLAY = '"Dela Gothic One", "Arial Black", sans-serif'
 
 const router = useRouter()
-const week = getPlans('text')[0]!
+const week = getPlans()[0]!
 
 const WORDS = [
   { w: 'ChatGPT', cap: 'Нейросеть, которая отвечает по-русски' },
@@ -157,7 +157,7 @@ onBeforeUnmount(() => {
       <div class="hero__foot">
         <div class="hero__copy">
           <h1 id="h1" class="hero__h">Нейросеть, которая пишет по-русски</h1>
-          <p class="hero__sub">Работает в России без VPN. Неделя — {{ week.price }} ₽, оплата картой МИР или через СБП.</p>
+          <p class="hero__sub">Работает в России без VPN. 7 дней — {{ week.price }} ₽ за {{ week.requestsTotal }} запросов, оплата картой МИР или через СБП.</p>
           <RouterLink to="/chat" class="btn-hot">Открыть чат</RouterLink>
         </div>
         <form class="own" @submit.prevent="submitOwn">

@@ -19,7 +19,7 @@ import { useTyping } from '../../shared/useTyping'
 useGoogleFont('family=Golos+Text:wght@400;500;600')
 
 const router = useRouter()
-const week = getPlans('text')[0]!
+const week = getPlans()[0]!
 
 // ---------- hero: live chat on the stage ----------
 type Msg = { role: 'user' | 'assistant'; text: string }
@@ -134,9 +134,9 @@ const replies = [reviews[4]!, reviews[5]!]
             <li>Модели Lite и Pro</li>
             <li>Длинные диалоги и история</li>
             <li>Оплата картами банков РФ</li>
-            <li>Месяц — {{ formatPrice(getPlans('text')[1]!.price) }} ₽, три месяца — {{ formatPrice(getPlans('text')[2]!.price) }} ₽</li>
+            <li>Месяц — {{ formatPrice(getPlans()[1]!.price) }} ₽, три месяца — {{ formatPrice(getPlans()[2]!.price) }} ₽</li>
           </ul>
-          <RouterLink :to="{ name: 'checkout', params: { plan: 'week' }, query: { tier: 'text' } }" class="btn">Оформить за {{ week.price }} ₽</RouterLink>
+          <RouterLink :to="{ name: 'checkout', params: { plan: 'week' } }" class="btn">Оформить за {{ week.price }} ₽</RouterLink>
         </div>
       </section>
 

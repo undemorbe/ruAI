@@ -17,8 +17,8 @@ import type { NebulaScene } from './NebulaScene'
  */
 useGoogleFont('family=Piazzolla:opsz,wght@8..30,400;8..30,500;8..30,600&display=swap')
 
-const week = getPlans('text')[0]!
-const plans = getPlans('text')
+const week = getPlans()[0]!
+const plans = getPlans()
 
 // ---------- hero: 3D orb + pinned frame ----------
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
         <div class="price__foot" v-reveal="120">
           <p>Без VPN и иностранных карт. Продлевается раз в неделю, отменяется в один клик. Месяц — {{ formatPrice(plans[1]!.price) }} ₽, три месяца — {{ formatPrice(plans[2]!.price) }} ₽.</p>
           <div class="price__act">
-            <RouterLink :to="{ name: 'checkout', params: { plan: 'week' }, query: { tier: 'text' } }" class="btn-ink">Оформить неделю</RouterLink>
+            <RouterLink :to="{ name: 'checkout', params: { plan: 'week' } }" class="btn-ink">Оформить неделю</RouterLink>
             <RouterLink to="/pricing" class="price__link">Все тарифы</RouterLink>
           </div>
         </div>

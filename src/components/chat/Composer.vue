@@ -2,8 +2,8 @@
 import { nextTick, ref, watch } from 'vue'
 import Icon from '@/components/ui/Icon.vue'
 
-const props = defineProps<{ streaming: boolean; mediaLocked: boolean; placeholder?: string }>()
-const emit = defineEmits<{ send: [text: string]; stop: []; locked: [feature: string] }>()
+const props = defineProps<{ streaming: boolean; placeholder?: string; note?: string }>()
+const emit = defineEmits<{ send: [text: string]; stop: [] }>()
 
 const text = ref('')
 const el = ref<HTMLTextAreaElement | null>(null)
@@ -31,7 +31,14 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-defineExpose({ focus: () => el.value?.focus() })
+defineExpose({
+  focus: () => el.value?.focus(),
+  /** Вернуть неотправленный текст (запрос отклонён лимитом). */
+  setText(v: string) {
+    text.value = v
+    nextTick(() => el.value?.focus())
+  },
+})
 </script>
 
 <template>
@@ -49,16 +56,7 @@ defineExpose({ focus: () => el.value?.focus() })
       @keydown="onKey"
     />
     <div class="cmp__bar">
-      <button type="button" class="cmp__chip" @click="emit('locked', 'files')">
-        <Icon name="clip" :size="16" /> <span>Прикрепить</span>
-        <Icon v-if="mediaLocked" name="lock" :size="13" class="cmp__lock" />
-      </button>
-      <button type="button" class="cmp__chip" @click="emit('locked', 'image')">
-        <Icon name="image" :size="16" /> <span>Создать изображение</span>
-        <Icon v-if="mediaLocked" name="lock" :size="13" class="cmp__lock" />
-      </button>
-      <span class="cmp__spacer" />
-      <button type="button" class="cmp__icon" aria-label="Голосовой ввод" @click="emit('locked', 'voice')"><Icon name="mic" :size="18" /></button>
+      <span class="cmp__note">{{ note ?? 'Только текст' }}</span>
       <button type="submit" class="cmp__send" :class="{ 'is-ready': text.trim() || streaming }" :aria-label="streaming ? 'Остановить' : 'Отправить'">
         <Icon :name="streaming ? 'stop' : 'send'" :size="18" :stroke="2.2" />
       </button>
@@ -104,40 +102,15 @@ defineExpose({ focus: () => el.value?.focus() })
   gap: 6px;
   margin-top: 8px;
 }
-.cmp__chip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  font-size: 13px;
-  color: var(--text-2);
-  transition: background 0.2s;
-}
-.cmp__chip:hover {
-  background: var(--bg-sunken);
-  color: var(--text);
-}
-.cmp__lock {
-  color: var(--text-3);
-}
-.cmp__spacer {
+.cmp__note {
   flex: 1;
-}
-.cmp__icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+  min-width: 0;
+  padding-left: 8px;
+  overflow: hidden;
+  font-size: 12px;
   color: var(--text-3);
-}
-.cmp__icon:hover {
-  color: var(--text);
-  background: var(--bg-sunken);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .cmp__send {
   display: grid;
@@ -157,20 +130,5 @@ defineExpose({ focus: () => el.value?.focus() })
 }
 .cmp__send:active {
   transform: scale(0.92);
-}
-@media (max-width: 520px) {
-  .cmp__chip span {
-    display: none;
-  }
-  .cmp__chip {
-    width: 36px;
-    padding: 0;
-    justify-content: center;
-  }
-  .cmp__lock {
-    position: absolute;
-    right: -2px;
-    top: -2px;
-  }
 }
 </style>

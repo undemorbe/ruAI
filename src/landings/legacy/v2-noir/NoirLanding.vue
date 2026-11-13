@@ -15,8 +15,7 @@ import QuietFooter from '../../shared/QuietFooter.vue'
  */
 useGoogleFont('family=Geologica:wght@300;400;500')
 
-const text = getPlans('text')
-const media = getPlans('media')
+const text = getPlans()
 
 // ---------- doors ----------
 const hovered = ref<'text' | 'media' | null>(null)
@@ -96,7 +95,7 @@ const letter = computed(() => reviews[1]!)
             </div>
           </div>
           <span class="door__name">Файлы и изображения</span>
-          <span class="door__line">от {{ media[0]!.price }} ₽ в неделю</span>
+          <span class="door__line">не входит в тарифы</span>
         </a>
       </div>
     </section>
@@ -163,9 +162,9 @@ if email is None:
       <section id="media" class="menu" aria-labelledby="menu-h">
         <h2 id="menu-h" class="menu__h">Цены</h2>
         <div class="menu__cols">
-          <div v-for="g in [{ name: 'Только текст', tier: 'text', items: text }, { name: 'Файлы и изображения', tier: 'media', items: media }]" :key="g.name" class="menu__group">
+          <div v-for="g in [{ name: 'Только текст', items: text }]" :key="g.name" class="menu__group">
             <h3>{{ g.name }}, ₽</h3>
-            <RouterLink v-for="p in g.items" :key="p.id" class="menu__item" :to="{ name: 'checkout', params: { plan: p.id }, query: { tier: g.tier } }">
+            <RouterLink v-for="p in g.items" :key="p.id" class="menu__item" :to="{ name: 'checkout', params: { plan: p.id } }">
               <span class="menu__row"><span>{{ p.title }}</span><span class="menu__n">{{ formatPrice(p.price) }}</span></span>
               <span class="menu__desc">{{ p.tagline }}</span>
             </RouterLink>

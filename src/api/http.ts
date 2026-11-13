@@ -3,12 +3,15 @@ import { env } from '@/config/env'
 export class ApiError extends Error {
   readonly status: number
   readonly code?: string
+  /** Секунды до повтора (для `rate_limit`). */
+  readonly retryAfter?: number
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, retryAfter?: number) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.retryAfter = retryAfter
   }
 }
 
@@ -57,14 +60,16 @@ async function raw(path: string, opts: RequestOptions = {}): Promise<Response> {
     if (!res.ok) {
       let message = res.statusText
       let code: string | undefined
+      let retryAfter = Number(res.headers.get('Retry-After')) || undefined
       try {
         const data = await res.json()
         message = data.message ?? message
         code = data.code
+        retryAfter = data.retryAfter ?? retryAfter
       } catch {
         /* non-JSON error body */
       }
-      throw new ApiError(message, res.status, code)
+      throw new ApiError(message, res.status, code, retryAfter)
     }
     return res
   } finally {

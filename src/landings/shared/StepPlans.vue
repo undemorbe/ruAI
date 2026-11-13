@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { getPlans } from '@/content/plans'
+import { fmt, getPlans } from '@/content/plans'
 import { formatPrice } from '@/lib/format'
 
 /** "Plans that step up": tile height grows with the plan. Colours come from --plan-1..3 tokens. */
 defineProps<{ title?: string }>()
-const plans = getPlans('text')
+const plans = getPlans()
 </script>
 
 <template>
@@ -15,19 +15,19 @@ const plans = getPlans('text')
         <div class="sp__body">
           <h3>{{ p.title }}</h3>
           <p class="sp__price">{{ formatPrice(p.price) }} ₽</p>
-          <p class="sp__old">вместо {{ formatPrice(p.oldPrice) }} ₽</p>
+          <p class="sp__quota">{{ fmt(p.requestsTotal) }} запросов · до {{ fmt(p.requestsPerDay) }} в сутки</p>
           <ul>
             <li v-for="f in p.features" :key="f.text">{{ f.text }}</li>
           </ul>
         </div>
-        <RouterLink class="sp__buy" :to="{ name: 'checkout', params: { plan: p.id }, query: { tier: 'text' } }">
+        <RouterLink class="sp__buy" :to="{ name: 'checkout', params: { plan: p.id } }">
           Оформить {{ p.title }}
         </RouterLink>
       </article>
     </div>
     <p class="sp__more">
-      Нужны файлы и генерация изображений?
-      <RouterLink :to="{ name: 'pricing', query: { tier: 'media' } }">Тарифы с медиа</RouterLink>
+      Лимиты общие на все чаты, суточный обновляется в 00:00 по Москве.
+      <RouterLink to="/pricing">Как считаются запросы</RouterLink>
     </p>
   </section>
 </template>
@@ -93,11 +93,9 @@ const plans = getPlans('text')
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
-.sp__old {
+.sp__quota {
   margin: 6px 0 0;
-  font: 400 16px var(--f-text);
-  text-decoration: line-through;
-  opacity: 0.8;
+  font: 600 16px var(--f-text);
 }
 .sp__body ul {
   display: grid;

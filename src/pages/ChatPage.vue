@@ -4,9 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import Composer from '@/components/chat/Composer.vue'
 import MessageItem from '@/components/chat/MessageItem.vue'
-import ModelPicker from '@/components/chat/ModelPicker.vue'
 import PaywallDialog from '@/components/chat/PaywallDialog.vue'
+import UsageMeter from '@/components/chat/UsageMeter.vue'
 import Icon from '@/components/ui/Icon.vue'
+import type { LimitCode } from '@/api'
+import { MODEL } from '@/config/app'
+import { PAYWALL_CODES } from '@/lib/limits'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 
@@ -16,7 +19,7 @@ const chat = useChatStore()
 const user = useUserStore()
 
 const sideOpen = ref(false)
-const paywall = ref<string | null>(null)
+const paywall = ref<LimitCode | null>(null)
 const scroller = ref<HTMLElement | null>(null)
 const composer = ref<InstanceType<typeof Composer> | null>(null)
 let stick = true
@@ -69,6 +72,21 @@ async function send(text: string) {
   if (id && id !== paramId()) router.replace({ name: 'chat', params: { id } })
 }
 
+async function continueReply() {
+  stick = true
+  await chat.continueReply()
+}
+
+// Отказ по лимиту: текст возвращается в поле ввода, при нехватке запросов — диалог.
+watch(
+  () => chat.refusal,
+  (r) => {
+    if (!r) return
+    nextTick(() => composer.value?.setText(r.draft))
+    if (PAYWALL_CODES.includes(r.code) || r.code === 'daily_limit') paywall.value = r.code
+  },
+)
+
 function select(id: string | null) {
   sideOpen.value = false
   router.push(id ? { name: 'chat', params: { id } } : { name: 'chat' })
@@ -92,15 +110,17 @@ function select(id: string | null) {
     <main class="main">
       <header class="top">
         <button class="top__menu" aria-label="Открыть меню" @click="sideOpen = true"><Icon name="menu" /></button>
-        <ModelPicker :model-value="chat.model" :is-paid="user.isPaid" @update:model-value="chat.setModel" @locked="paywall = $event" />
+        <span class="top__model" :title="MODEL.hint">{{ MODEL.name }}</span>
         <span class="top__spacer" />
+        <UsageMeter :usage="user.usage" />
         <button class="top__icon top__new" aria-label="Новый чат" @click="select(null)"><Icon name="edit" /></button>
         <RouterLink to="/pricing" class="top__icon" aria-label="Помощь и тарифы"><Icon name="help" /></RouterLink>
       </header>
 
       <section v-if="!chat.messages.length" class="empty">
         <h1 class="empty__title">Что у тебя сегодня на уме?</h1>
-        <Composer ref="composer" :streaming="chat.streaming" :media-locked="!user.isPaid" @send="send" @stop="chat.stop" @locked="paywall = $event" />
+        <Composer ref="composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
+        <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
         <div class="empty__hints">
           <button v-for="s in SUGGESTIONS" :key="s.text" class="empty__hint" @click="send(s.text)">
             <Icon :name="s.icon" :size="16" /> {{ s.text }}
@@ -113,17 +133,22 @@ function select(id: string | null) {
           <div class="feed__inner">
             <MessageItem v-for="m in chat.messages" :key="m.id" :message="m" />
             <p v-if="chat.error" class="feed__error">{{ chat.error }}</p>
+            <div v-if="chat.canContinue" class="cont">
+              <button class="cont__btn" @click="continueReply"><Icon name="arrow" :size="15" /> Продолжить ответ</button>
+              <span class="cont__note">Ответ упёрся в лимит длины. «Продолжи» — это ещё один запрос.</span>
+            </div>
           </div>
         </div>
         <div class="dock">
-          <Composer ref="composer" :streaming="chat.streaming" :media-locked="!user.isPaid" @send="send" @stop="chat.stop" @locked="paywall = $event" />
+          <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
+          <Composer ref="composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
         </div>
       </template>
 
       <p class="disclaimer">Нейросеть может ошибаться — проверяйте важное. Независимый сервис, не связан с OpenAI.</p>
     </main>
 
-    <PaywallDialog v-if="paywall" :feature="paywall" @close="paywall = null" />
+    <PaywallDialog v-if="paywall" :code="paywall" @close="paywall = null" />
   </div>
 </template>
 
@@ -154,8 +179,52 @@ function select(id: string | null) {
   padding: 8px;
   border-radius: 10px;
 }
+.top__model {
+  padding: 8px 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
 .top__spacer {
   flex: 1;
+}
+.notice {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--bg-sunken);
+  font-size: 14px;
+  color: var(--text);
+}
+.empty .notice {
+  width: 100%;
+  margin: -12px 0 0;
+}
+.cont {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: -10px;
+}
+.cont__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 14px;
+  transition: background 0.2s;
+}
+.cont__btn:hover {
+  background: var(--bg-sunken);
+}
+.cont__note {
+  font-size: 12px;
+  color: var(--text-3);
 }
 .top__icon {
   display: grid;

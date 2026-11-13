@@ -6,11 +6,33 @@ export interface ModelOption {
   id: string
   name: string
   hint: string
-  requiresPlan: boolean
 }
 
-export const MODELS: ModelOption[] = [
-  { id: 'ruai-lite', name: 'Быстрая модель', hint: 'Быстрые ответы', requiresPlan: false },
-  { id: 'ruai-pro', name: 'Умная модель', hint: 'Сложные задачи и код', requiresPlan: true },
-  { id: 'ruai-think', name: 'Думающая модель', hint: 'Глубокие рассуждения', requiresPlan: true },
-]
+/** Единственная модель сервиса. Запросы идут через OpenRouter, ключ — только на сервере. */
+export const MODEL: ModelOption = {
+  id: 'openai/gpt-oss-20b',
+  name: 'GPT-OSS-20B',
+  hint: 'Текстовая модель: вопросы, тексты, код',
+}
+
+/**
+ * Правила запроса. Сервер — источник истины; здесь копия для подсказок в интерфейсе
+ * и для мока.
+ */
+export const LIMITS = {
+  /** Максимум входных токенов на запрос (история + новое сообщение). */
+  inputTokens: 16_000,
+  /** Максимум выходных токенов на ответ. */
+  outputTokens: 16_000,
+  /** Сколько последних сообщений чата уходит в модель. */
+  contextMessages: 20,
+  perMinute: 5,
+  perHour: 50,
+  /** Одновременных запросов на пользователя. */
+  concurrent: 1,
+  /** Часовой пояс суточного сброса. */
+  timezone: 'Europe/Moscow',
+} as const
+
+/** Слово, которым пользователь просит дописать обрезанный ответ. */
+export const CONTINUE_PROMPT = 'Продолжи'

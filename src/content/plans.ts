@@ -1,64 +1,63 @@
-import type { Plan, PlanTier } from '@/api/types'
+import type { Plan, PlanId } from '@/api/types'
+import { LIMITS, MODEL } from '@/config/app'
 
-const base = {
-  week: {
-    title: '1 неделя',
-    periodDays: 7,
-    tagline: 'Расширенный доступ к интеллекту для повседневных задач',
-    features: [
-      { icon: 'spark', text: 'Простые и понятные объяснения' },
-      { icon: 'bubble', text: 'Короткие диалоги по общим вопросам' },
-      { icon: 'brain', text: 'Базовая память и контекст' },
-    ],
-  },
-  month: {
-    title: '1 месяц',
-    periodDays: 30,
-    tagline: 'Делайте больше с помощью передовой модели',
-    features: [
-      { icon: 'spark', text: 'Решение сложных задач и кода' },
-      { icon: 'bubble', text: 'Длинные диалоги в нескольких сессиях' },
-      { icon: 'brain', text: 'Память о целях и прошлых разговорах' },
-      { icon: 'route', text: 'Планы поездок и задачи в режиме агента' },
-    ],
-  },
-  quarter: {
-    title: '3 месяца',
-    periodDays: 90,
-    tagline: 'Доступ к лучшим функциям и возможностям ChatGPT',
-    features: [
-      { icon: 'spark', text: 'Продвинутые исследования и темы' },
-      { icon: 'bubble', text: 'Большие проекты и сложные проблемы' },
-      { icon: 'brain', text: 'Полный контекст и максимум памяти' },
-      { icon: 'route', text: 'Исследования и задачи планирования' },
-      { icon: 'flask', text: 'Ранний доступ к новым функциям' },
-    ],
-  },
-} as const
-
-const prices: Record<PlanTier, Record<keyof typeof base, [number, number]>> = {
-  text: { week: [388, 688], month: [988, 1288], quarter: [1880, 2880] },
-  media: { week: [588, 988], month: [1388, 1888], quarter: [2780, 3880] },
+interface PlanBase {
+  title: string
+  periodDays: number
+  price: number
+  requestsTotal: number
+  requestsPerDay: number
+  tagline: string
 }
 
-export function getPlans(tier: PlanTier): Plan[] {
-  return (Object.keys(base) as (keyof typeof base)[]).map((id) => {
-    const [price, oldPrice] = prices[tier][id]
-    const extra =
-      tier === 'media'
-        ? [{ icon: 'image', text: 'Работа с файлами, фото и генерация изображений' }]
-        : []
+/** Экономика: цена, запросы на период и в сутки. Лимиты общие для всех чатов пользователя. */
+export const PLAN_TABLE: Record<PlanId, PlanBase> = {
+  week: {
+    title: '7 дней',
+    periodDays: 7,
+    price: 388,
+    requestsTotal: 500,
+    requestsPerDay: 100,
+    tagline: 'Попробовать в деле: учёба, письма, быстрые вопросы',
+  },
+  month: {
+    title: '30 дней',
+    periodDays: 30,
+    price: 988,
+    requestsTotal: 1500,
+    requestsPerDay: 200,
+    tagline: 'Для ежедневной работы с текстами и кодом',
+  },
+  quarter: {
+    title: '90 дней',
+    periodDays: 90,
+    price: 1880,
+    requestsTotal: 4500,
+    requestsPerDay: 200,
+    tagline: 'Самый низкий расход на запрос — на целый квартал',
+  },
+}
+
+export const fmt = (n: number) => n.toLocaleString('ru-RU')
+
+export function getPlans(): Plan[] {
+  return (Object.keys(PLAN_TABLE) as PlanId[]).map((id) => {
+    const p = PLAN_TABLE[id]
     return {
       id,
-      tier,
-      title: base[id].title,
-      periodDays: base[id].periodDays,
-      tagline: base[id].tagline,
-      features: [...base[id].features, ...extra],
-      price,
-      oldPrice,
+      ...p,
       currency: 'RUB',
+      features: [
+        { icon: 'brain', text: `${MODEL.name}: тексты, учёба, код` },
+        { icon: 'bubble', text: 'Сколько угодно чатов — лимит общий на все' },
+        { icon: 'route', text: `Ответ до ${fmt(LIMITS.outputTokens)} токенов, в контексте ${LIMITS.contextMessages} последних сообщений` },
+        { icon: 'spark', text: 'История хранится и после окончания подписки' },
+      ],
       popular: id === 'month',
     }
   })
 }
+
+/** Цена одного запроса при полном использовании периода. */
+export const pricePerRequest = (p: Pick<Plan, 'price' | 'requestsTotal'>) =>
+  Math.round((p.price / p.requestsTotal) * 100) / 100

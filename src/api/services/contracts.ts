@@ -7,7 +7,6 @@ import type {
   Message,
   PaymentInfo,
   Plan,
-  PlanTier,
   SendMessagePayload,
   User,
 } from '../types'
@@ -30,7 +29,7 @@ export interface ChatService {
 }
 
 export interface BillingService {
-  plans(tier: PlanTier): Promise<Plan[]>
+  plans(): Promise<Plan[]>
   checkout(req: CheckoutRequest): Promise<CheckoutSession>
   payment(paymentId: ID): Promise<PaymentInfo>
 }

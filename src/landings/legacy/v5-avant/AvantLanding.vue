@@ -13,7 +13,7 @@ import StepPlans from '../../shared/StepPlans.vue'
  */
 useGoogleFont('family=Alumni+Sans:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600')
 
-const week = getPlans('text')[0]!
+const week = getPlans()[0]!
 
 // ---------- departure board ----------
 const ROWS = [

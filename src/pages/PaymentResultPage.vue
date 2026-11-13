@@ -5,8 +5,10 @@ import { api, type PaymentInfo } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { formatPrice } from '@/lib/format'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const user = useUserStore()
 const info = ref<PaymentInfo | null>(null)
 const failed = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -22,6 +24,8 @@ async function poll() {
   try {
     info.value = await api.billing.payment(id)
     if (info.value.status === 'pending' && tries++ < 20) timer = setTimeout(poll, 2000)
+    // оплата открыла новый период — подтягиваем подписку и обнулённые счётчики
+    else if (info.value.status === 'succeeded') void user.fetchMe()
   } catch {
     failed.value = true
   }

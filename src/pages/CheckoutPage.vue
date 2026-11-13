@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api, type PaymentMethod, type Plan, type PlanTier } from '@/api'
+import { api, type PaymentMethod, type Plan } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
-import { discountPercent, formatPrice } from '@/lib/format'
+import { fmt } from '@/content/plans'
+import { formatPrice } from '@/lib/format'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
 const user = useUserStore()
 
-const tier = computed<PlanTier>(() => (route.query.tier === 'media' ? 'media' : 'text'))
 const plan = ref<Plan | null>(null)
 const notFound = ref(false)
 
@@ -32,7 +32,7 @@ const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.
 const canPay = computed(() => !!plan.value && emailOk.value && agree.value && !submitting.value)
 
 onMounted(async () => {
-  const plans = await api.billing.plans(tier.value)
+  const plans = await api.billing.plans()
   plan.value = plans.find((p) => p.id === route.params.plan) ?? null
   notFound.value = !plan.value
 })
@@ -43,7 +43,7 @@ async function pay() {
   submitting.value = true
   error.value = null
   try {
-    const session = await api.billing.checkout({ planId: plan.value.id, tier: tier.value, email: email.value.trim(), method: method.value })
+    const session = await api.billing.checkout({ planId: plan.value.id, email: email.value.trim(), method: method.value })
     const base = import.meta.env.BASE_URL
     if (session.confirmationUrl.startsWith(base)) {
       await router.push('/' + session.confirmationUrl.slice(base.length))
@@ -61,7 +61,7 @@ async function pay() {
   <div class="page">
     <AppHeader />
     <main class="wrap">
-      <RouterLink :to="{ name: 'pricing', query: { tier } }" class="back"><Icon name="arrow" :size="16" class="back__i" /> Все тарифы</RouterLink>
+      <RouterLink to="/pricing" class="back"><Icon name="arrow" :size="16" class="back__i" /> Все тарифы</RouterLink>
 
       <div v-if="notFound" class="nf">
         <h1>Тариф не найден</h1>
@@ -118,16 +118,16 @@ async function pay() {
           <template v-if="plan">
             <span class="sum__k">Ваш заказ</span>
             <h2>ChatGPT · {{ plan.title }}</h2>
-            <p class="sum__tier">{{ tier === 'media' ? 'С файлами и изображениями' : 'Без изображений' }}</p>
+            <p class="sum__tier">Только текст, без изображений</p>
             <ul>
               <li v-for="f in plan.features" :key="f.text"><Icon name="check" :size="16" />{{ f.text }}</li>
             </ul>
             <dl>
-              <div><dt>Стоимость</dt><dd><s>{{ formatPrice(plan.oldPrice) }} ₽</s></dd></div>
-              <div><dt>Скидка</dt><dd class="ok">−{{ discountPercent(plan.price, plan.oldPrice) }}%</dd></div>
+              <div><dt>Запросов на период</dt><dd>{{ fmt(plan.requestsTotal) }}</dd></div>
+              <div><dt>В сутки</dt><dd>до {{ fmt(plan.requestsPerDay) }}</dd></div>
               <div class="total"><dt>К оплате</dt><dd>{{ formatPrice(plan.price) }} ₽</dd></div>
             </dl>
-            <p class="sum__note">Далее — {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока подписка активна.</p>
+            <p class="sum__note">Счётчик запросов обнуляется сразу после оплаты. Далее — {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока подписка активна.</p>
           </template>
           <div v-else class="sum__skel" />
         </aside>

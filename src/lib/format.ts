@@ -2,11 +2,6 @@ const rub = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
 
 export const formatPrice = (n: number) => rub.format(n)
 
-export function discountPercent(price: number, oldPrice: number): number {
-  if (oldPrice <= 0 || price >= oldPrice) return 0
-  return Math.round((1 - price / oldPrice) * 100)
-}
-
 /** Price per day, rounded to whole rubles. */
 export const perDay = (price: number, days: number) => Math.round(price / Math.max(days, 1))
 

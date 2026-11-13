@@ -41,14 +41,14 @@ const groups = computed(() => {
 
     <RouterLink v-if="!isPaid" to="/pricing" class="side__upsell">
       <Icon name="bolt" :size="18" />
-      <span><b>Открыть Pro</b><small>Длинный контекст, файлы и изображения</small></span>
+      <span><b>Оформить подписку</b><small>GPT-OSS-20B — от 388 ₽ за 7 дней. История чатов сохраняется</small></span>
     </RouterLink>
 
     <div class="side__user">
       <span class="side__avatar">{{ userLabel.slice(0, 2).toUpperCase() }}</span>
       <span class="side__who">
         <span class="side__email">{{ userLabel }}</span>
-        <RouterLink to="/pricing" class="side__upgrade">{{ isPaid ? 'Подписка' : 'Улучшить' }}</RouterLink>
+        <RouterLink to="/pricing" class="side__upgrade">{{ isPaid ? 'Подписка' : 'Тарифы' }}</RouterLink>
       </span>
     </div>
   </aside>

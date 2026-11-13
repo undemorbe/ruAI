@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api, type User } from '@/api'
+import { api, type Usage, type User } from '@/api'
 import { setTokenProvider } from '@/api/http'
 import { storage } from '@/lib/storage'
 
@@ -13,7 +13,17 @@ export const useUserStore = defineStore('user', () => {
 
   setTokenProvider(() => token.value)
 
-  const isPaid = computed(() => !!user.value?.subscription)
+  /** Подписка активна (не истекла). История чатов доступна и без неё. */
+  const isPaid = computed(() => {
+    const s = user.value?.subscription
+    return !!s && Date.parse(s.expiresAt) > Date.now()
+  })
+  const usage = computed(() => (isPaid.value ? (user.value?.subscription?.usage ?? null) : null))
+
+  /** Сервер присылает свежие счётчики в событии `done`. */
+  function setUsage(u: Usage) {
+    if (user.value?.subscription) user.value.subscription.usage = u
+  }
   const displayName = computed(() => user.value?.email ?? user.value?.name ?? 'Гость')
 
   async function fetchMe() {
@@ -41,5 +51,5 @@ export const useUserStore = defineStore('user', () => {
     await fetchMe()
   }
 
-  return { user, token, loading, isPaid, displayName, fetchMe, login, logout }
+  return { user, token, loading, isPaid, usage, displayName, fetchMe, login, logout, setUsage }
 })

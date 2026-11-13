@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { discountPercent, perDay, pluralRu, splitBlocks } from '../format'
+import { perDay, pluralRu, splitBlocks } from '../format'
 
 describe('format', () => {
-  it('rounds discount percent', () => {
-    expect(discountPercent(388, 688)).toBe(44)
-    expect(discountPercent(100, 0)).toBe(0)
-  })
-
   it('price per day', () => {
     expect(perDay(388, 7)).toBe(55)
     expect(perDay(100, 0)).toBe(100)

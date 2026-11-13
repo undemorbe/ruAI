@@ -19,14 +19,30 @@ import type {
  *   POST   /auth/logout
  *
  *   GET    /chats                   -> ChatSummary[]
- *   GET    /chats/:id/messages      -> Message[]
+ *   GET    /chats/:id/messages      -> Message[]          (полная история, хранится в БД)
  *   POST   /chats/messages          SendMessagePayload -> text/event-stream<ChatStreamEvent>
  *   PATCH  /chats/:id               { title }
  *   DELETE /chats/:id
  *
- *   GET    /billing/plans?tier=     -> Plan[]
+ *   GET    /billing/plans           -> Plan[]
  *   POST   /billing/checkout        CheckoutRequest -> CheckoutSession
  *   GET    /billing/payments/:id    -> PaymentInfo
+ *
+ *   GET    /admin/usage             -> расход API по пользователям (только админ)
+ *
+ * POST /chats/messages — правила (всё проверяет сервер, см. README «Экономика»):
+ *   - модель одна: openai/gpt-oss-20b через OpenRouter; ключ OpenRouter только на сервере;
+ *   - только текст, без файлов и изображений;
+ *   - в модель уходят ≤ 20 последних сообщений чата; если они > 16 000 входных токенов,
+ *     старые отбрасываются; max_tokens ответа = 16 000; полная история пишется в БД;
+ *   - 1 одновременный запрос на пользователя, ≤ 5 в минуту, ≤ 50 в час;
+ *   - суточный лимит (сброс 00:00 МСК) и лимит периода (сброс после оплаты нового периода),
+ *     общие для всех чатов;
+ *   - фактическая стоимость каждого запроса пишется в БД; при исчерпании внутреннего
+ *     бюджета подписки новые запросы блокируются;
+ *   - отказ до стрима: HTTP 402/409/413/429 с телом { message, code: LimitCode, retryAfter? };
+ *   - `done` несёт актуальный Usage и `message.truncated`, если ответ упёрся в лимит токенов
+ *     (пользователь пишет «Продолжи» — это новый запрос).
  */
 
 export const httpAuth: AuthService = {
@@ -54,7 +70,7 @@ export const httpChat: ChatService = {
 }
 
 export const httpBilling: BillingService = {
-  plans: (tier) => http.get<Plan[]>(`/billing/plans?tier=${tier}`),
+  plans: () => http.get<Plan[]>('/billing/plans'),
   checkout: (req) => http.post<CheckoutSession>('/billing/checkout', req),
   payment: (id) => http.get<PaymentInfo>(`/billing/payments/${id}`),
 }
