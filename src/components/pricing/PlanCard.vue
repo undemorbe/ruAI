@@ -175,6 +175,10 @@ const renewText = computed(() => {
   font-size: 13px;
   color: var(--text-3);
 }
+.pc__foot small {
+  font-size: 12px;
+  line-height: 1.45;
+}
 .pc__foot em {
   color: var(--text-2);
 }

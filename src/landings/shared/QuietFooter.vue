@@ -38,8 +38,19 @@
   .qf {
     grid-template-columns: 1fr;
     gap: 8px;
-    padding-top: 20svh;
+    padding-top: 10svh;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     font-size: 14px;
+  }
+  /* finger-sized targets */
+  .qf__links {
+    gap: 8px 20px;
+    flex-wrap: wrap;
+  }
+  .qf a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .qf__legal {
     justify-self: start;

@@ -54,6 +54,18 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  /* anchors land below the sticky header */
+  scroll-padding-top: 76px;
+}
+
+/* no double-tap zoom delay on controls */
+a,
+button,
+input,
+label,
+summary,
+[role='tab'] {
+  touch-action: manipulation;
 }
 
 body {
@@ -148,8 +160,11 @@ a {
   background: var(--ink);
   color: var(--ink-text);
 }
-.btn--ink:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--ink) 86%, var(--accent));
+/* hover only where a pointer can hover: on touch it would stick after a tap */
+@media (hover: hover) {
+  .btn--ink:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ink) 86%, var(--accent));
+  }
 }
 .btn--accent {
   background: var(--accent);
@@ -159,8 +174,10 @@ a {
   border: 1px solid var(--line-strong);
   background: var(--bg-elev);
 }
-.btn--ghost:hover {
-  background: var(--bg-sunken);
+@media (hover: hover) {
+  .btn--ghost:hover {
+    background: var(--bg-sunken);
+  }
 }
 .btn--block {
   width: 100%;

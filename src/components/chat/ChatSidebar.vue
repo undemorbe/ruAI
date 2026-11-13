@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { ChatSummary } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
 import Logo from '@/components/ui/Logo.vue'
 
 const props = defineProps<{ chats: ChatSummary[]; activeId: string | null; open: boolean; userLabel: string; isPaid: boolean }>()
 const emit = defineEmits<{ select: [id: string | null]; remove: [id: string]; close: [] }>()
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape' && props.open) emit('close')
+}
+onMounted(() => document.addEventListener('keydown', onKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 
 const groups = computed(() => {
   const today = new Date().toDateString()
@@ -74,13 +80,17 @@ const groups = computed(() => {
 }
 .side__close {
   display: none;
-  padding: 8px;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
   border-radius: 10px;
 }
 .side__new {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   padding: 10px 12px;
   border-radius: 12px;
   font-weight: 500;
@@ -122,6 +132,7 @@ const groups = computed(() => {
 .side__title {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 9px 10px;
   text-align: left;
   font-size: 14px;
@@ -130,7 +141,10 @@ const groups = computed(() => {
   white-space: nowrap;
 }
 .side__del {
-  padding: 8px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   color: var(--text-3);
   opacity: 0;
   transition: opacity 0.15s;
@@ -199,7 +213,10 @@ const groups = computed(() => {
   white-space: nowrap;
 }
 .side__upgrade {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: 13px;
   color: var(--text-2);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -222,7 +239,7 @@ const groups = computed(() => {
     transform: none;
   }
   .side__close {
-    display: inline-flex;
+    display: inline-grid;
   }
   .scrim {
     display: block;

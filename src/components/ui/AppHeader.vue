@@ -28,8 +28,8 @@ const user = useUserStore()
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px clamp(16px, 4vw, 40px);
-  padding-top: max(14px, env(safe-area-inset-top));
+  padding: 8px clamp(16px, 4vw, 40px);
+  padding-top: max(8px, env(safe-area-inset-top));
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   -webkit-backdrop-filter: saturate(1.4) blur(14px);
   backdrop-filter: saturate(1.4) blur(14px);
@@ -40,10 +40,18 @@ const user = useUserStore()
   align-items: center;
   gap: clamp(8px, 2vw, 24px);
 }
+.hdr__logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
 .hdr__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   font-weight: 500;
   color: var(--text-2);
-  padding: 6px 2px;
+  padding: 0 6px;
   transition: color 0.2s;
 }
 .hdr__link:hover,

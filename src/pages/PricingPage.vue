@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import type { PlanId } from '@/api'
 import PlanCard from '@/components/pricing/PlanCard.vue'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { CONTINUE_PROMPT, LIMITS, MODEL } from '@/config/app'
 import { fmt } from '@/content/plans'
+import { formatPrice } from '@/lib/format'
 import { useBillingStore } from '@/stores/billing'
 
 const billing = useBillingStore()
+/** На телефоне вместо трёх одинаковых карточек подряд — переключатель периода. */
+const picked = ref<PlanId>('month')
 
 onMounted(() => {
   if (!billing.plans.length) void billing.loadPlans()
@@ -39,8 +43,22 @@ const TRUST = [
         <p>Модель {{ MODEL.name }}, только текст. Выберите период — без VPN и с оплатой российскими картами.</p>
       </div>
 
+      <div v-if="billing.plans.length" class="seg" role="tablist" aria-label="Период подписки">
+        <button
+          v-for="p in billing.plans"
+          :key="p.id"
+          class="seg__btn"
+          role="tab"
+          :aria-selected="picked === p.id"
+          :class="{ on: picked === p.id }"
+          @click="picked = p.id"
+        >
+          <b>{{ p.title }}</b><span>{{ formatPrice(p.price) }} ₽</span>
+        </button>
+      </div>
+
       <div class="grid" :class="{ 'is-loading': billing.loading }" aria-live="polite">
-        <PlanCard v-for="p in billing.plans" :key="p.id" :plan="p" />
+        <PlanCard v-for="p in billing.plans" :key="p.id" :plan="p" :class="{ 'is-picked': p.id === picked }" />
         <template v-if="!billing.plans.length">
           <div v-for="i in 3" :key="i" class="skeleton" />
         </template>
@@ -106,6 +124,9 @@ h1 {
   background: linear-gradient(100deg, var(--bg-sunken) 40%, var(--bg-elev) 50%, var(--bg-sunken) 60%) 0 0 / 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
+.seg {
+  display: none;
+}
 .rules {
   margin-top: 56px;
 }
@@ -169,6 +190,58 @@ h1 {
   .trust,
   .rules dl {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .intro {
+    margin-bottom: 20px;
+  }
+}
+/* one column of cards: show one period at a time instead of three identical cards in a row */
+@media (max-width: 920px) {
+  .seg {
+    max-width: 480px;
+    position: sticky;
+    top: calc(64px + env(safe-area-inset-top, 0px));
+    z-index: 5;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin: 0 auto 14px;
+    width: 100%;
+    padding: 4px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-sunken) 92%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--line);
+  }
+  .seg__btn {
+    display: grid;
+    gap: 2px;
+    min-height: 52px;
+    padding: 6px 4px;
+    border-radius: 12px;
+    color: var(--text-2);
+    transition:
+      background 0.2s,
+      color 0.2s;
+  }
+  .seg__btn b {
+    font: 600 15px/1.2 var(--font-display);
+  }
+  .seg__btn span {
+    font-size: 13px;
+  }
+  .seg__btn.on {
+    background: var(--ink);
+    color: var(--ink-text);
+  }
+  .grid > :not(.is-picked):not(.skeleton) {
+    display: none;
+  }
+  .rules {
+    margin-top: 40px;
   }
 }
 @keyframes shimmer {

@@ -114,13 +114,13 @@ function select(id: string | null) {
         <span class="top__spacer" />
         <UsageMeter :usage="user.usage" />
         <button class="top__icon top__new" aria-label="Новый чат" @click="select(null)"><Icon name="edit" /></button>
-        <RouterLink to="/pricing" class="top__icon" aria-label="Помощь и тарифы"><Icon name="help" /></RouterLink>
+        <RouterLink to="/pricing" class="top__icon top__help" aria-label="Помощь и тарифы"><Icon name="help" /></RouterLink>
       </header>
 
       <section v-if="!chat.messages.length" class="empty">
         <h1 class="empty__title">Что у тебя сегодня на уме?</h1>
-        <Composer ref="composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
         <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
+        <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
         <div class="empty__hints">
           <button v-for="s in SUGGESTIONS" :key="s.text" class="empty__hint" @click="send(s.text)">
             <Icon :name="s.icon" :size="16" /> {{ s.text }}
@@ -176,10 +176,16 @@ function select(id: string | null) {
 }
 .top__menu {
   display: none;
-  padding: 8px;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
 }
 .top__model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 8px 10px;
   font-family: var(--font-display);
   font-size: 15px;
@@ -199,7 +205,7 @@ function select(id: string | null) {
 }
 .empty .notice {
   width: 100%;
-  margin: -12px 0 0;
+  margin: 0;
 }
 .cont {
   display: flex;
@@ -228,9 +234,10 @@ function select(id: string | null) {
 }
 .top__icon {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   color: var(--text-2);
 }
@@ -270,6 +277,7 @@ function select(id: string | null) {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 40px;
   padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -320,16 +328,18 @@ function select(id: string | null) {
   .top__new {
     display: grid;
   }
+  /* phones: title in the free space, suggestions right above the composer (thumb zone) */
   .empty {
     justify-content: flex-end;
+    gap: 12px;
     padding-bottom: 8px;
   }
   .empty__title {
-    margin-bottom: auto;
-    margin-top: 22vh;
+    order: 0;
+    margin: auto 0;
   }
   .empty__hints {
-    order: -1;
+    order: 1;
     flex-wrap: nowrap;
     justify-content: flex-start;
     width: calc(100% + 32px);
@@ -338,8 +348,29 @@ function select(id: string | null) {
     overflow-x: auto;
     scrollbar-width: none;
   }
+  .empty .notice {
+    order: 2;
+    margin: 0;
+  }
+  .empty__composer {
+    order: 3;
+  }
   .empty__hint {
     flex: none;
+  }
+}
+@media (max-width: 380px) {
+  .top {
+    padding-inline: 6px;
+    gap: 0;
+  }
+  .top__model {
+    padding-inline: 4px;
+    font-size: 14px;
+  }
+  /* тарифы доступны из счётчика запросов и меню */
+  .top__help {
+    display: none;
   }
 }
 @keyframes rise {

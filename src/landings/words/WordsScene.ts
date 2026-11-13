@@ -256,8 +256,11 @@ export class WordsScene {
     const visW = visH * this.camera.aspect
     // word width: most of the screen width, but never taller than ~40% of it
     this.mat.uniforms.uScale!.value = Math.min(visW * 0.9, visH * 1.25)
-    // the word sits above centre, leaving the lower third of the screen for the headline
-    this.points.position.y = visH * (this.camera.aspect < 0.8 ? 0.14 : 0.1)
+    // the word sits above centre, leaving the lower third of the screen for the headline;
+    // a layout that gives the canvas its own block (phones) sets `--lift: 0` in CSS
+    const css = parseFloat(getComputedStyle(this.canvas).getPropertyValue('--lift'))
+    const lift = Number.isFinite(css) ? css : this.camera.aspect < 0.8 ? 0.14 : 0.1
+    this.points.position.y = visH * lift
     this.render()
   }
 

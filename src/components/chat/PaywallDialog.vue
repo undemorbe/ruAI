@@ -112,6 +112,32 @@ p {
   margin-top: 6px;
   color: var(--text-2);
 }
+/* phones: bottom sheet within thumb reach */
+@media (max-width: 520px) {
+  .pw {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .pw__card {
+    width: 100%;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    animation-name: sheet;
+  }
+  .pw__x {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    top: 6px;
+    right: 6px;
+  }
+}
+@keyframes sheet {
+  from {
+    transform: translateY(100%);
+  }
+}
 @keyframes fade {
   from {
     opacity: 0;

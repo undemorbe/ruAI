@@ -498,18 +498,47 @@ onBeforeUnmount(() => {
   }
   .nav__cta {
     margin-left: auto;
+    padding: 12px 16px;
+    white-space: nowrap;
   }
+  /* phones: the scene gets its own block, the copy flows under it — nothing overlaps */
   .hero {
-    min-height: 600px;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100svh;
+    padding-top: calc(76px + env(safe-area-inset-top, 0px));
+  }
+  .hero__canvas {
+    --lift: 0;
+    position: relative;
+    inset: auto;
+    flex: none;
+    height: clamp(150px, 36svh, 360px);
+  }
+  .hero__still {
+    position: static;
+    padding: 6svh 0;
+    font-size: clamp(48px, 17vw, 120px);
   }
   .hero__cap {
-    top: 52%;
+    position: static;
+    margin: 4px 0 0;
     padding-inline: var(--margin);
+    font-size: 15px;
   }
   .hero__foot {
+    position: static;
     flex-direction: column;
     align-items: stretch;
     gap: 24px;
+    margin-top: auto;
+    padding: 28px var(--margin) calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  .row__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .own {
     width: 100%;
@@ -523,6 +552,24 @@ onBeforeUnmount(() => {
   .said__q--1,
   .said__q--2 {
     margin-top: 0;
+  }
+}
+@media (max-width: 360px) {
+  .nav__mark {
+    font-size: 20px;
+  }
+  .nav__cta {
+    padding-inline: 12px;
+  }
+}
+/* landscape phones: headline and the word-builder side by side */
+@media (max-width: 860px) and (min-width: 560px) and (max-height: 520px) {
+  .hero__foot {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+  .own {
+    width: min(20rem, 45%);
   }
 }
 </style>

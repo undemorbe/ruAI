@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{ before?: string; after?: string; verb?:
   after: 'и получите ответ —',
   verb: 'спросить',
   placeholder: 'ипотеку',
-  note: 'Откроется чат, вопрос уже будет отправлен. Регистрация не нужна.',
+  note: 'Откроется чат с готовым вопросом. Запросы — по подписке, от 388 ₽ за 7 дней.',
 })
 const router = useRouter()
 const q = ref('')
@@ -86,6 +86,9 @@ function go() {
   color: var(--muted);
 }
 @media (max-width: 640px) {
+  .sc {
+    padding-block: 72px 24px;
+  }
   .sc__h {
     font-size: 10vw;
   }

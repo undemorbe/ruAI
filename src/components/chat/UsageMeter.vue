@@ -31,7 +31,8 @@ const title = computed(() =>
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
+  flex: none;
+  height: 36px;
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -82,6 +83,14 @@ const title = computed(() =>
   .um__long,
   .um__bar {
     display: none;
+  }
+}
+@media (max-width: 380px) {
+  .um {
+    padding: 0 10px;
+  }
+  .um--off {
+    font-size: 12px;
   }
 }
 </style>

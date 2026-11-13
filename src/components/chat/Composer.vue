@@ -114,9 +114,10 @@ defineExpose({
 }
 .cmp__send {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--line-strong);
   color: var(--bg-elev);

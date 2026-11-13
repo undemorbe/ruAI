@@ -145,6 +145,7 @@ async function pay() {
 .back {
   display: inline-flex;
   align-items: center;
+  min-height: 44px;
   gap: 6px;
   color: var(--text-2);
   font-size: 14px;
@@ -361,9 +362,20 @@ dd {
   .grid {
     grid-template-columns: 1fr;
   }
+  /* phones: short order summary above the form; plan details live on /pricing */
   .sum {
     position: static;
     order: -1;
+    padding: 18px;
+  }
+  .sum ul {
+    display: none;
+  }
+  .wrap {
+    padding-top: 8px;
+  }
+  .grid {
+    margin-top: 8px;
   }
 }
 @keyframes spin {
