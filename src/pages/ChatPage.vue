@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import Composer from '@/components/chat/Composer.vue'
@@ -8,9 +8,9 @@ import PaywallDialog from '@/components/chat/PaywallDialog.vue'
 import UsageMeter from '@/components/chat/UsageMeter.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LimitCode } from '@/api'
-import { MODEL } from '@/config/app'
+import { MODELS } from '@/config/app'
 import { PAYWALL_CODES } from '@/lib/limits'
-import { useChatStore } from '@/stores/chat'
+import { type Draft, useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -66,9 +66,11 @@ onMounted(async () => {
   }
 })
 
-async function send(text: string) {
+const model = computed(() => MODELS[user.tier ?? 'text'])
+
+async function send(draft: string | Draft) {
   stick = true
-  const id = await chat.send(text)
+  const id = await chat.send(draft)
   if (id && id !== paramId()) router.replace({ name: 'chat', params: { id } })
 }
 
@@ -82,7 +84,7 @@ watch(
   () => chat.refusal,
   (r) => {
     if (!r) return
-    nextTick(() => composer.value?.setText(r.draft))
+    if (r.draft || r.images.length) nextTick(() => composer.value?.setText(r.draft, r.images))
     if (PAYWALL_CODES.includes(r.code) || r.code === 'daily_limit') paywall.value = r.code
   },
 )
@@ -110,7 +112,7 @@ function select(id: string | null) {
     <main class="main">
       <header class="top">
         <button class="top__menu" aria-label="Открыть меню" @click="sideOpen = true"><Icon name="menu" /></button>
-        <span class="top__model" :title="MODEL.hint">{{ MODEL.name }}</span>
+        <span class="top__model" :title="model.hint">{{ model.name }}</span>
         <span class="top__spacer" />
         <UsageMeter :usage="user.usage" />
         <button class="top__icon top__new" aria-label="Новый чат" @click="select(null)"><Icon name="edit" /></button>
@@ -120,7 +122,7 @@ function select(id: string | null) {
       <section v-if="!chat.messages.length" class="empty">
         <h1 class="empty__title">Что у тебя сегодня на уме?</h1>
         <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
-        <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
+        <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="paywall = 'media_required'" />
         <div class="empty__hints">
           <button v-for="s in SUGGESTIONS" :key="s.text" class="empty__hint" @click="send(s.text)">
             <Icon :name="s.icon" :size="16" /> {{ s.text }}
@@ -135,13 +137,13 @@ function select(id: string | null) {
             <p v-if="chat.error" class="feed__error">{{ chat.error }}</p>
             <div v-if="chat.canContinue" class="cont">
               <button class="cont__btn" @click="continueReply"><Icon name="arrow" :size="15" /> Продолжить ответ</button>
-              <span class="cont__note">Ответ упёрся в лимит длины. «Продолжи» — это ещё один запрос.</span>
+              <span class="cont__note">Ответ получился длинным — продолжение займёт ещё один запрос.</span>
             </div>
           </div>
         </div>
         <div class="dock">
           <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
-          <Composer ref="composer" :streaming="chat.streaming" @send="send" @stop="chat.stop" />
+          <Composer ref="composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="paywall = 'media_required'" />
         </div>
       </template>
 

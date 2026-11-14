@@ -7,6 +7,10 @@ interface ImportMetaEnv {
   readonly VITE_USE_MOCKS?: string
   /** Public path the app is served from (GitHub Pages: /ruAI/) */
   readonly VITE_BASE?: string
+  /** Секретный путь админки, например /k3J…/ (только сборка админки) */
+  readonly VITE_ADMIN_BASE?: string
+  /** "true" — мок админки с демо-данными (npm run dev:admin) */
+  readonly VITE_ADMIN_MOCKS?: string
 }
 
 interface ImportMeta {

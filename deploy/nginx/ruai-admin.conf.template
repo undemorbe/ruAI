@@ -1,0 +1,61 @@
+# Шаблон /etc/nginx/snippets/ruai-admin.conf. Не правьте вручную — его собирает:
+#   bash /opt/ruai/deploy/server-apply.sh
+# __ADMIN_PATH__ заменяется значением ADMIN_PATH из /etc/ruai-admin.env (43 символа base64url, 256 бит).
+#
+# Файлы админки лежат в /var/www/ruai-admin/__ADMIN_PATH__/ (сборка с относительным base),
+# отдельно от публичного сайта: из его каталога до них не добраться.
+
+# Без завершающего слэша — на слэш (иначе запрос уйдёт в публичный SPA).
+location = /__ADMIN_PATH__ {
+    return 301 /__ADMIN_PATH__/;
+}
+
+# Вход: 6 попыток в минуту с IP, сверх — 429 (fail2ban jail nginx-limit-req банит за систематические превышения).
+location = /__ADMIN_PATH__/api/login {
+    # --- необязательно: доступ только с ваших адресов ---
+    # allow 203.0.113.10;
+    # deny  all;
+
+    limit_req  zone=ruai_admin_login burst=3 nodelay;
+    limit_conn ruai_admin_conn 5;
+    client_max_body_size 4k;
+    access_log /var/log/nginx/ruai-admin.access.log;
+    proxy_pass http://127.0.0.1:8787;
+    include /etc/nginx/snippets/ruai-proxy.conf;
+}
+
+location ^~ /__ADMIN_PATH__/api/ {
+    # allow 203.0.113.10;
+    # deny  all;
+
+    limit_req  zone=ruai_admin_api burst=40 nodelay;
+    limit_conn ruai_admin_conn 20;
+    client_max_body_size 16k;
+    access_log /var/log/nginx/ruai-admin.access.log;
+    proxy_pass http://127.0.0.1:8787;
+    include /etc/nginx/snippets/ruai-proxy.conf;
+}
+
+location ^~ /__ADMIN_PATH__/ {
+    # allow 203.0.113.10;
+    # deny  all;
+
+    # --- необязательно: третий фактор до страницы входа (htpasswd -B, jail nginx-http-auth) ---
+    # auth_basic "Restricted";
+    # auth_basic_user_file /etc/nginx/ruai-admin.htpasswd;
+
+    limit_req  zone=ruai_admin_api burst=40 nodelay;
+    limit_conn ruai_admin_conn 20;
+    access_log /var/log/nginx/ruai-admin.access.log;
+
+    root /var/www/ruai-admin;
+    try_files $uri /__ADMIN_PATH__/index.html;
+
+    include /etc/nginx/snippets/ruai-security-headers.conf;
+    add_header Cache-Control "no-store" always;
+    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+    # Строгий CSP: только свои скрипты и стили, без inline, без внешних доменов.
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" always;
+}

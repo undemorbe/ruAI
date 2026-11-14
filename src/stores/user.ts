@@ -19,6 +19,9 @@ export const useUserStore = defineStore('user', () => {
     return !!s && Date.parse(s.expiresAt) > Date.now()
   })
   const usage = computed(() => (isPaid.value ? (user.value?.subscription?.usage ?? null) : null))
+  /** Тариф активной подписки; без подписки — null. */
+  const tier = computed(() => (isPaid.value ? (user.value?.subscription?.tier ?? 'text') : null))
+  const canMedia = computed(() => tier.value === 'media')
 
   /** Сервер присылает свежие счётчики в событии `done`. */
   function setUsage(u: Usage) {
@@ -51,5 +54,5 @@ export const useUserStore = defineStore('user', () => {
     await fetchMe()
   }
 
-  return { user, token, loading, isPaid, usage, displayName, fetchMe, login, logout, setUsage }
+  return { user, token, loading, isPaid, usage, tier, canMedia, displayName, fetchMe, login, logout, setUsage }
 })

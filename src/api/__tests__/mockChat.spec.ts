@@ -1,26 +1,25 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { MODEL } from '@/config/app'
 import { ApiError } from '../http'
-import type { ChatStreamEvent, LimitCode, PlanId } from '../types'
-import { mockBilling, mockChat, newSubscription } from '../mocks'
+import type { ChatStreamEvent, LimitCode, PlanId, PlanTier, SendMessagePayload } from '../types'
+import { K, mockBilling, mockChat, newSubscription } from '../mocks'
 
 const USER_KEY = 'ruai.mock.user'
 
-function subscribe(planId: PlanId = 'week', patch: Partial<ReturnType<typeof newSubscription>['usage']> = {}) {
-  const sub = newSubscription(planId)
+function subscribe(planId: PlanId = 'week', patch: Partial<ReturnType<typeof newSubscription>['usage']> = {}, tier: PlanTier = 'text') {
+  const sub = newSubscription(planId, tier)
   Object.assign(sub.usage, patch)
   localStorage.setItem(USER_KEY, JSON.stringify({ id: 'u1', email: 'a@b.ru', name: 'a', isGuest: false, subscription: sub }))
 }
 
-async function collect(content: string, signal?: AbortSignal) {
+async function collect(content: string, signal?: AbortSignal, extra: Partial<SendMessagePayload> = {}) {
   const events: ChatStreamEvent[] = []
-  for await (const e of mockChat.send({ chatId: null, content, model: MODEL.id }, signal)) events.push(e)
+  for await (const e of mockChat.send({ chatId: null, content, ...extra }, signal)) events.push(e)
   return events
 }
 
-async function refusal(content = 'Привет'): Promise<LimitCode | undefined> {
+async function refusal(content = 'Привет', extra: Partial<SendMessagePayload> = {}): Promise<LimitCode | undefined> {
   try {
-    await collect(content)
+    await collect(content, undefined, extra)
   } catch (e) {
     return (e as ApiError).code as LimitCode
   }
@@ -44,6 +43,9 @@ describe('mock chat stream', () => {
     expect(saved.map((m) => m.role)).toEqual(['user', 'assistant'])
     expect(done.type === 'done' && done.message.content).toBe(saved[1]!.content)
     expect(done.type === 'done' && done.usage).toMatchObject({ totalUsed: 1, dailyUsed: 1, totalLimit: 500, dailyLimit: 100 })
+    const ledger = JSON.parse(localStorage.getItem(K.ledger)!)
+    expect(ledger.spentTextUsd).toBeGreaterThan(0)
+    expect(ledger.spentImageUsd).toBe(0)
   }, 20000)
 
   it('ends without done when aborted', async () => {
@@ -51,7 +53,7 @@ describe('mock chat stream', () => {
     const ac = new AbortController()
     const events: ChatStreamEvent[] = []
     try {
-      for await (const e of mockChat.send({ chatId: null, content: 'Длинный ответ', model: MODEL.id }, ac.signal)) {
+      for await (const e of mockChat.send({ chatId: null, content: 'Длинный ответ' }, ac.signal)) {
         events.push(e)
         if (e.type === 'delta') ac.abort()
       }
@@ -60,6 +62,18 @@ describe('mock chat stream', () => {
     }
     expect(events.filter((e) => e.type === 'delta').length).toBeLessThanOrEqual(2)
     expect(events.some((e) => e.type === 'done')).toBe(false)
+  }, 20000)
+
+  it('does not charge a request that produced nothing', async () => {
+    subscribe()
+    const ac = new AbortController()
+    ac.abort()
+    try {
+      await collect('Привет', ac.signal)
+    } catch {
+      // aborted before the first token
+    }
+    expect(JSON.parse(localStorage.getItem(USER_KEY)!).subscription.usage.totalUsed).toBe(0)
   }, 20000)
 
   it('marks a cut-off answer as truncated', async () => {
@@ -97,7 +111,7 @@ describe('mock limits', () => {
 
   it('allows one request at a time', async () => {
     subscribe()
-    const first = mockChat.send({ chatId: null, content: 'Привет', model: MODEL.id })[Symbol.asyncIterator]()
+    const first = mockChat.send({ chatId: null, content: 'Привет' })[Symbol.asyncIterator]()
     await first.next() // запрос принят и выполняется
     expect(await refusal()).toBe('busy')
     while (!(await first.next()).done);
@@ -111,9 +125,53 @@ describe('mock limits', () => {
 
   it('payment opens a new period with the total counter reset', async () => {
     subscribe('week', { totalUsed: 500, dailyUsed: 40 })
-    await mockBilling.checkout({ planId: 'month', email: 'a@b.ru', method: 'card' })
+    await mockBilling.checkout({ planId: 'month', tier: 'media', email: 'a@b.ru', method: 'card' })
     const sub = JSON.parse(localStorage.getItem(USER_KEY)!).subscription
     expect(sub.planId).toBe('month')
-    expect(sub.usage).toMatchObject({ totalUsed: 0, totalLimit: 1500, dailyLimit: 200, dailyUsed: 40 })
+    expect(sub.tier).toBe('media')
+    expect(sub.usage).toMatchObject({ totalUsed: 0, totalLimit: 1500, dailyLimit: 200, dailyUsed: 40, generationsUsed: 0 })
   })
+
+  it('images and generation require the media tier', async () => {
+    subscribe()
+    expect(await refusal('Нарисуй кота', { mode: 'image' })).toBe('media_required')
+    expect(await refusal('Что на фото?', { images: ['up_1'] })).toBe('media_required')
+  })
+
+  it('refuses when the subscription budget is spent', async () => {
+    subscribe()
+    localStorage.setItem(K.ledger, JSON.stringify({ tier: 'text', planId: 'week', budgetRub: 10, spentTextUsd: 1, spentImageUsd: 0, tokensIn: 0, tokensOut: 0, generations: 0, errors: 0 }))
+    expect(await refusal()).toBe('budget')
+  })
+})
+
+describe('mock image generation', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('generates an image, counts it separately and keeps it in history', async () => {
+    subscribe('week', {}, 'media')
+    const events = await collect('Нарисуй кота в космосе', undefined, { mode: 'image' })
+    expect(events.some((e) => e.type === 'image')).toBe(true)
+    const done = events.at(-1)!
+    expect(done.type === 'done' && done.usage).toMatchObject({ totalUsed: 1, generationsUsed: 1 })
+
+    const chatId = events[0]!.type === 'chat' ? events[0]!.chat.id : ''
+    const saved = await mockChat.messages(chatId)
+    expect(saved[1]!.images?.[0]?.source).toBe('generated')
+    const ledger = JSON.parse(localStorage.getItem(K.ledger)!)
+    expect(ledger.generations).toBe(1)
+    expect(ledger.spentImageUsd).toBeGreaterThan(0)
+  }, 20000)
+
+  it('respects the admin switch and the generation limit', async () => {
+    subscribe('week', {}, 'media')
+    localStorage.setItem(K.settings, JSON.stringify({ generationEnabled: false }))
+    expect(await refusal('Нарисуй', { mode: 'image' })).toBe('generation_disabled')
+
+    localStorage.setItem(K.settings, JSON.stringify({ generationEnabled: true, generationLimits: { week: 1, month: null, quarter: null } }))
+    subscribe('week', { generationsUsed: 1 }, 'media')
+    expect(await refusal('Нарисуй', { mode: 'image' })).toBe('generation_limit')
+    // обычный текст при исчерпанных генерациях работает
+    expect(await refusal('Привет')).toBeUndefined()
+  }, 20000)
 })

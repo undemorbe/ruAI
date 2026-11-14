@@ -33,7 +33,7 @@ const renewText = computed(() => {
 
     <p class="pc__tag">{{ plan.tagline }}</p>
 
-    <RouterLink :to="{ name: 'checkout', params: { plan: plan.id } }" class="btn btn--ink btn--block">
+    <RouterLink :to="{ name: 'checkout', params: { plan: plan.id }, query: { tier: plan.tier } }" class="btn btn--ink btn--block">
       Получить доступ на {{ plan.title }}
     </RouterLink>
 
@@ -42,7 +42,7 @@ const renewText = computed(() => {
     </ul>
 
     <footer class="pc__foot">
-      <em>Только текст — без загрузки, анализа и генерации изображений</em>
+      <em>{{ plan.tier === 'text' ? 'Без работы с фото и изображениями' : 'Включает анализ фото и генерацию изображений' }}</em>
       <small>{{ renewText }}</small>
     </footer>
   </article>

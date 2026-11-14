@@ -25,11 +25,22 @@ async function copy() {
       <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="currentColor" /><circle cx="44" cy="22" r="6" fill="var(--accent)" /></svg>
     </div>
     <div class="msg__body">
+      <div v-if="message.images?.length" class="msg__pics" :class="{ 'is-gen': message.role === 'assistant' }">
+        <figure v-for="img in message.images" :key="img.id" class="msg__pic">
+          <a :href="img.url" target="_blank" rel="noopener" :aria-label="img.source === 'generated' ? 'Открыть изображение' : 'Открыть фото'">
+            <img :src="img.url" :width="img.width" :height="img.height" :alt="img.source === 'generated' ? 'Сгенерированное изображение' : 'Фото пользователя'" loading="lazy" />
+          </a>
+          <figcaption v-if="img.source === 'generated'">
+            <a :href="img.url" :download="`image-${img.id}`" class="msg__tool"><Icon name="arrow" :size="15" class="msg__dl" /> Скачать</a>
+          </figcaption>
+        </figure>
+      </div>
       <template v-for="(b, i) in blocks" :key="i">
         <pre v-if="b.kind === 'code'" class="msg__code"><span v-if="b.lang" class="msg__lang">{{ b.lang }}</span><code>{{ b.text }}</code></pre>
         <p v-else class="msg__text">{{ b.text.trim() }}</p>
       </template>
       <span v-if="message.status === 'streaming'" class="msg__caret" aria-hidden="true" />
+      <p v-if="message.status === 'streaming' && !message.content && !message.images?.length" class="msg__wait">Думаю…</p>
       <p v-if="message.status === 'error'" class="msg__err">Ответ прерван. Попробуйте ещё раз.</p>
       <div v-if="message.role === 'assistant' && message.status === 'done' && message.content" class="msg__tools">
         <button class="msg__tool" @click="copy"><Icon :name="copied ? 'check' : 'copy'" :size="15" /> {{ copied ? 'Скопировано' : 'Копировать' }}</button>
@@ -39,6 +50,44 @@ async function copy() {
 </template>
 
 <style scoped>
+.msg__pics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.msg__pics.is-gen {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+.msg__pic {
+  margin: 0;
+}
+.msg__pic img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(240px, 60vw);
+  max-height: 240px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+.msg__pics.is-gen .msg__pic img {
+  max-width: min(420px, 100%);
+  max-height: none;
+}
+.msg__pic figcaption {
+  margin-top: 4px;
+}
+.msg__dl {
+  transform: rotate(90deg);
+}
+.msg__wait {
+  margin: 0;
+  color: var(--text-3);
+}
 .msg {
   display: flex;
   gap: 14px;

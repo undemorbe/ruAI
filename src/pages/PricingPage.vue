@@ -1,31 +1,24 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import type { PlanId } from '@/api'
 import PlanCard from '@/components/pricing/PlanCard.vue'
+import TierToggle from '@/components/pricing/TierToggle.vue'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
-import { CONTINUE_PROMPT, LIMITS, MODEL } from '@/config/app'
-import { fmt } from '@/content/plans'
 import { formatPrice } from '@/lib/format'
 import { useBillingStore } from '@/stores/billing'
 
 const billing = useBillingStore()
+const route = useRoute()
 /** На телефоне вместо трёх одинаковых карточек подряд — переключатель периода. */
 const picked = ref<PlanId>('month')
 
 onMounted(() => {
-  if (!billing.plans.length) void billing.loadPlans()
+  const t = route.query.tier
+  if (t === 'text' || t === 'media') billing.tier = t
+  if (!billing.plans.length || billing.plans[0]?.tier !== billing.tier) void billing.loadPlans()
 })
-
-/** Как считаются запросы — те же правила, что применяет сервер. */
-const RULES = [
-  { k: '1 запрос', v: `Одно ваше сообщение и ответ модели. «${CONTINUE_PROMPT}» после оборванного ответа — тоже запрос.` },
-  { k: 'Все чаты', v: 'Лимиты общие на все чаты. Создавать новые чаты можно сколько угодно.' },
-  { k: '00:00 МСК', v: 'Суточный лимит обновляется в полночь по Москве. Лимит периода — после оплаты нового периода.' },
-  { k: `${LIMITS.contextMessages} сообщений`, v: `Модель видит ${LIMITS.contextMessages} последних сообщений чата, до ${fmt(LIMITS.inputTokens)} токенов. Если больше — самые старые не попадают в контекст, но остаются в истории.` },
-  { k: `${fmt(LIMITS.outputTokens)} токенов`, v: `Максимальная длина ответа. Если ответ оборвался, напишите «${CONTINUE_PROMPT}».` },
-  { k: 'По одному', v: `Один запрос за раз, не чаще ${LIMITS.perMinute} в минуту и ${LIMITS.perHour} в час.` },
-]
 
 const TRUST = [
   { icon: 'shield', title: 'Безопасная оплата', text: 'Платёж проходит на защищённой странице банка-эквайера. Мы не видим данные карты.' },
@@ -40,7 +33,8 @@ const TRUST = [
     <main class="wrap">
       <div class="intro">
         <h1>Тарифы ChatGPT</h1>
-        <p>Модель {{ MODEL.name }}, только текст. Выберите период — без VPN и с оплатой российскими картами.</p>
+        <p>Выберите период. Все тарифы — без VPN, на русском и с оплатой российскими картами.</p>
+        <TierToggle v-model="billing.tier" />
       </div>
 
       <div v-if="billing.plans.length" class="seg" role="tablist" aria-label="Период подписки">
@@ -58,19 +52,11 @@ const TRUST = [
       </div>
 
       <div class="grid" :class="{ 'is-loading': billing.loading }" aria-live="polite">
-        <PlanCard v-for="p in billing.plans" :key="p.id" :plan="p" :class="{ 'is-picked': p.id === picked }" />
+        <PlanCard v-for="p in billing.plans" :key="p.id + p.tier" :plan="p" :class="{ 'is-picked': p.id === picked }" />
         <template v-if="!billing.plans.length">
           <div v-for="i in 3" :key="i" class="skeleton" />
         </template>
       </div>
-
-      <section class="rules" aria-labelledby="rules-h">
-        <h2 id="rules-h">Как считаются запросы</h2>
-        <dl>
-          <div v-for="r in RULES" :key="r.k"><dt>{{ r.k }}</dt><dd>{{ r.v }}</dd></div>
-        </dl>
-        <p class="rules__note">История чатов хранится и после окончания подписки — продлите её, и можно продолжать с того же места.</p>
-      </section>
 
       <ul class="trust">
         <li v-for="t in TRUST" :key="t.title">
@@ -127,38 +113,6 @@ h1 {
 .seg {
   display: none;
 }
-.rules {
-  margin-top: 56px;
-}
-.rules h2 {
-  margin: 0 0 20px;
-  font: 700 clamp(22px, 3vw, 28px) / 1.15 var(--font-display);
-  letter-spacing: -0.02em;
-}
-.rules dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0 24px;
-  margin: 0;
-}
-.rules dl div {
-  padding: 16px 0;
-  border-top: 1px solid var(--line);
-}
-.rules dt {
-  font: 700 18px/1.2 var(--font-display);
-}
-.rules dd {
-  margin: 6px 0 0;
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--text-2);
-}
-.rules__note {
-  margin: 8px 0 0;
-  font-size: 14px;
-  color: var(--text-2);
-}
 .trust {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -187,8 +141,7 @@ h1 {
     max-width: 480px;
     margin: 0 auto;
   }
-  .trust,
-  .rules dl {
+  .trust {
     grid-template-columns: 1fr;
   }
 }
@@ -239,9 +192,6 @@ h1 {
   }
   .grid > :not(.is-picked):not(.skeleton) {
     display: none;
-  }
-  .rules {
-    margin-top: 40px;
   }
 }
 @keyframes shimmer {

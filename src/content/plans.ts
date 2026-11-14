@@ -1,62 +1,99 @@
-import type { Plan, PlanId } from '@/api/types'
-import { LIMITS, MODEL } from '@/config/app'
+import type { Plan, PlanId, PlanTier } from '@/api/types'
+import { MODELS } from '@/config/app'
 
 interface PlanBase {
   title: string
   periodDays: number
-  price: number
   requestsTotal: number
   requestsPerDay: number
   tagline: string
+  features: { icon: string; text: string }[]
 }
 
-/** Экономика: цена, запросы на период и в сутки. Лимиты общие для всех чатов пользователя. */
+/**
+ * Экономика. Лимиты запросов общие для всех чатов и одинаковые для обоих тарифов;
+ * отличаются цена и модель. Технические ограничения (контекст, токены, частота) —
+ * защита сервера, на витрине их не показываем.
+ */
 export const PLAN_TABLE: Record<PlanId, PlanBase> = {
   week: {
     title: '7 дней',
     periodDays: 7,
-    price: 388,
     requestsTotal: 500,
     requestsPerDay: 100,
-    tagline: 'Попробовать в деле: учёба, письма, быстрые вопросы',
+    tagline: 'Расширенный доступ к интеллекту для повседневных задач',
+    features: [
+      { icon: 'spark', text: 'Простые и понятные объяснения' },
+      { icon: 'bubble', text: 'Письма, посты и ответы на вопросы' },
+      { icon: 'brain', text: 'Помощь с учёбой и домашними заданиями' },
+    ],
   },
   month: {
     title: '30 дней',
     periodDays: 30,
-    price: 988,
     requestsTotal: 1500,
     requestsPerDay: 200,
-    tagline: 'Для ежедневной работы с текстами и кодом',
+    tagline: 'Делайте больше каждый день',
+    features: [
+      { icon: 'spark', text: 'Решение сложных задач и кода' },
+      { icon: 'bubble', text: 'Длинные диалоги в нескольких чатах' },
+      { icon: 'brain', text: 'Тексты для работы в нужном тоне' },
+      { icon: 'route', text: 'Планы поездок, тренировок и проектов' },
+    ],
   },
   quarter: {
     title: '90 дней',
     periodDays: 90,
-    price: 1880,
     requestsTotal: 4500,
     requestsPerDay: 200,
-    tagline: 'Самый низкий расход на запрос — на целый квартал',
+    tagline: 'Максимум запросов по самой выгодной цене',
+    features: [
+      { icon: 'spark', text: 'Продвинутые исследования и темы' },
+      { icon: 'bubble', text: 'Большие проекты и сложные проблемы' },
+      { icon: 'brain', text: 'Код, аналитика и длинные тексты' },
+      { icon: 'route', text: 'Исследования и задачи планирования' },
+    ],
   },
+}
+
+export const PRICES: Record<PlanTier, Record<PlanId, number>> = {
+  text: { week: 388, month: 988, quarter: 1880 },
+  media: { week: 788, month: 1988, quarter: 3880 },
+}
+
+const MEDIA_FEATURES = [
+  { icon: 'image', text: 'Анализ фото: распознаёт, объясняет, отвечает по снимку' },
+  { icon: 'pen', text: 'Генерация и редактирование изображений' },
+]
+
+export const TIER_LABEL: Record<PlanTier, string> = {
+  text: 'Без изображений',
+  media: 'С фото и изображениями',
 }
 
 export const fmt = (n: number) => n.toLocaleString('ru-RU')
 
-export function getPlans(): Plan[] {
+export function getPlans(tier: PlanTier = 'text'): Plan[] {
   return (Object.keys(PLAN_TABLE) as PlanId[]).map((id) => {
-    const p = PLAN_TABLE[id]
+    const { features, ...p } = PLAN_TABLE[id]
     return {
       id,
+      tier,
+      model: MODELS[tier].name,
       ...p,
+      price: PRICES[tier][id],
       currency: 'RUB',
       features: [
-        { icon: 'brain', text: `${MODEL.name}: тексты, учёба, код` },
-        { icon: 'bubble', text: 'Сколько угодно чатов — лимит общий на все' },
-        { icon: 'route', text: `Ответ до ${fmt(LIMITS.outputTokens)} токенов, в контексте ${LIMITS.contextMessages} последних сообщений` },
-        { icon: 'spark', text: 'История хранится и после окончания подписки' },
+        ...(tier === 'media' ? [{ icon: 'bolt', text: `Модель ${MODELS.media.name}` }, ...MEDIA_FEATURES] : []),
+        ...features,
+        { icon: 'check', text: 'История всех чатов сохраняется' },
       ],
       popular: id === 'month',
     }
   })
 }
+
+export const getPlan = (tier: PlanTier, id: PlanId) => getPlans(tier).find((p) => p.id === id)!
 
 /** Цена одного запроса при полном использовании периода. */
 export const pricePerRequest = (p: Pick<Plan, 'price' | 'requestsTotal'>) =>

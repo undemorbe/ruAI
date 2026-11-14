@@ -11,7 +11,7 @@ describe('limits', () => {
   })
 
   it('freshUsage zeroes the daily counter after the reset moment only', () => {
-    const u = { totalLimit: 500, totalUsed: 120, dailyLimit: 100, dailyUsed: 100, dailyResetAt: '2026-11-13T21:00:00.000Z' }
+    const u = { totalLimit: 500, totalUsed: 120, dailyLimit: 100, dailyUsed: 100, dailyResetAt: '2026-11-13T21:00:00.000Z', generationsUsed: 0, generationsLimit: null, generationEnabled: false }
     expect(freshUsage(u, new Date('2026-11-13T20:00:00Z'))).toBe(u)
     const next = freshUsage(u, new Date('2026-11-13T21:00:01Z'))
     expect(next.dailyUsed).toBe(0)
@@ -20,8 +20,8 @@ describe('limits', () => {
   })
 
   it('remaining is the smaller of daily and total', () => {
-    expect(remaining({ totalLimit: 500, totalUsed: 470, dailyLimit: 100, dailyUsed: 10, dailyResetAt: '' })).toBe(30)
-    expect(remaining({ totalLimit: 500, totalUsed: 0, dailyLimit: 100, dailyUsed: 100, dailyResetAt: '' })).toBe(0)
+    expect(remaining({ totalLimit: 500, totalUsed: 470, dailyLimit: 100, dailyUsed: 10, dailyResetAt: '', generationsUsed: 0, generationsLimit: null, generationEnabled: false })).toBe(30)
+    expect(remaining({ totalLimit: 500, totalUsed: 0, dailyLimit: 100, dailyUsed: 100, dailyResetAt: '', generationsUsed: 0, generationsLimit: null, generationEnabled: false })).toBe(0)
   })
 
   it('context keeps the last 20 messages and drops the oldest over 16k tokens', () => {

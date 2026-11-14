@@ -8,12 +8,20 @@ export interface ModelOption {
   hint: string
 }
 
-/** Единственная модель сервиса. Запросы идут через OpenRouter, ключ — только на сервере. */
-export const MODEL: ModelOption = {
-  id: 'openai/gpt-oss-20b',
-  name: 'GPT-OSS-20B',
-  hint: 'Текстовая модель: вопросы, тексты, код',
-}
+/**
+ * Модели по тарифам. Запросы идут через OpenRouter, ключ — только на сервере;
+ * модель выбирает сервер по тарифу подписки.
+ * `name` — то, что видит пользователь. У текстового тарифа модель не называем.
+ */
+export const MODELS = {
+  text: { id: 'openai/gpt-oss-20b', name: 'ChatGPT', hint: 'Тексты, учёба, код' },
+  // Точный id GPT-5.6 Luna и модель генерации сверить с каталогом OpenRouter тестовым запросом.
+  media: { id: 'openai/gpt-5.6-luna', name: 'GPT-5.6 Luna', hint: 'Тексты, анализ фото и картинки' },
+} satisfies Record<'text' | 'media', ModelOption>
+export const IMAGE_MODEL_ID = 'openai/gpt-5.6-luna-image'
+
+/** Загрузка фото: форматы и размер (проверяет и сервер). */
+export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif' }
 
 /**
  * Правила запроса. Сервер — источник истины; здесь копия для подсказок в интерфейсе

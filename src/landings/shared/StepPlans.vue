@@ -20,14 +20,14 @@ const plans = getPlans()
             <li v-for="f in p.features" :key="f.text">{{ f.text }}</li>
           </ul>
         </div>
-        <RouterLink class="sp__buy" :to="{ name: 'checkout', params: { plan: p.id } }">
+        <RouterLink class="sp__buy" :to="{ name: 'checkout', params: { plan: p.id }, query: { tier: 'text' } }">
           Оформить {{ p.title }}
         </RouterLink>
       </article>
     </div>
     <p class="sp__more">
-      Лимиты общие на все чаты, суточный обновляется в 00:00 по Москве.
-      <RouterLink to="/pricing">Как считаются запросы</RouterLink>
+      Нужны анализ фото и генерация картинок?
+      <RouterLink :to="{ name: 'pricing', query: { tier: 'media' } }">Тарифы с изображениями — от 788 ₽</RouterLink>
     </p>
   </section>
 </template>

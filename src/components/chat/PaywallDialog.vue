@@ -22,6 +22,13 @@ const copy = computed(() => {
         text: `Суточный лимит обновится в 00:00 по Москве — через ${untilReset()}. Остаток за период никуда не денется.`,
         pay: false,
       }
+    case 'media_required':
+      return {
+        title: 'Фото и картинки — в тарифе с изображениями',
+        text: 'GPT-5.6 Luna разбирает фото и рисует изображения по описанию. От 788 ₽ за 7 дней, история чатов сохраняется.',
+        pay: true,
+        tier: 'media' as const,
+      }
     case 'total_limit':
     case 'budget':
       return {
@@ -32,7 +39,7 @@ const copy = computed(() => {
     default:
       return {
         title: 'Нужна подписка',
-        text: 'Запросы к GPT-OSS-20B доступны по подписке — от 388 ₽ за 7 дней. История чатов сохраняется и после окончания подписки.',
+        text: 'Запросы доступны по подписке — от 388 ₽ за 7 дней. История чатов сохраняется и после окончания подписки.',
         pay: true,
       }
   }
@@ -53,7 +60,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       <h2>{{ copy.title }}</h2>
       <p>{{ copy.text }}</p>
       <template v-if="copy.pay">
-        <RouterLink to="/pricing" class="btn btn--ink btn--block">Выбрать период</RouterLink>
+        <RouterLink :to="{ name: 'pricing', query: copy.tier ? { tier: copy.tier } : {} }" class="btn btn--ink btn--block">{{ copy.tier ? 'Посмотреть тариф' : 'Выбрать период' }}</RouterLink>
         <button class="btn btn--block pw__later" @click="emit('close')">Позже</button>
       </template>
       <button v-else class="btn btn--ink btn--block" @click="emit('close')">Понятно</button>

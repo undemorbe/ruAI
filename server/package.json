@@ -1,0 +1,24 @@
+{
+  "name": "ruai-admin-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "API админки ruAI: вход по паролю и TOTP, сессии, журнал, отчёты. Только за nginx на 127.0.0.1.",
+  "scripts": {
+    "start": "node src/main.ts",
+    "dev": "ADMIN_DEMO=1 node --watch src/main.ts",
+    "setup": "node scripts/admin-setup.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'src/**/*.test.ts'"
+  },
+  "dependencies": {
+    "fastify": "5.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

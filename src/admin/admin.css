@@ -1,0 +1,132 @@
+/* Общие стили таблиц и сеток админки (поверх src/styles/base.css). */
+body {
+  background: var(--bg);
+}
+.grid-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: 10px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
+  gap: 12px;
+}
+.stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.grid-2 > *,
+.grid-stats > * {
+  min-width: 0;
+}
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.tbl th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+.tbl td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tbl tr:last-child td {
+  border-bottom: 0;
+}
+.tbl .r {
+  text-align: right;
+}
+.tbl .muted,
+.muted {
+  color: var(--text-3);
+}
+.tbl tfoot td {
+  border-top: 1px solid var(--line-strong);
+  font-weight: 600;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--bg-sunken);
+  color: var(--text-2);
+  font-size: 12px;
+}
+.tag--media {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+.bad {
+  color: var(--danger);
+}
+.good {
+  color: var(--ok);
+}
+.err-box {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--line));
+  border-radius: var(--radius-s);
+  color: var(--danger);
+}
+.bar {
+  position: relative;
+  height: 6px;
+  min-width: 60px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+}
+.bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: var(--ink);
+}
+.field-sm {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.field-sm:focus {
+  border-color: var(--text-2);
+  outline: none;
+  box-shadow: var(--focus);
+}
+.field-sm {
+  font-size: 15px;
+}
+@media (max-width: 720px) {
+  .field-sm {
+    font-size: 16px; /* iOS не зумит поле при фокусе */
+  }
+}
+/* без inline-стилей: CSP админки — style-src 'self' */
+.w-input {
+  width: 140px;
+}
+.w-bar {
+  width: 30%;
+}

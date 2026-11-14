@@ -1,0 +1,58 @@
+# /etc/systemd/system/ruai-admin.service
+[Unit]
+Description=ruAI admin API (127.0.0.1:8787)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ruai-admin
+Group=ruai-admin
+WorkingDirectory=/opt/ruai/server
+# секреты: chmod 600, root:root — systemd читает файл до сброса прав
+EnvironmentFile=/etc/ruai-admin.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning src/main.ts
+Restart=on-failure
+RestartSec=3
+
+# /var/lib/ruai-admin (настройки, журнал) и /var/log/ruai-admin (auth.log для fail2ban)
+StateDirectory=ruai-admin
+StateDirectoryMode=0700
+LogsDirectory=ruai-admin
+LogsDirectoryMode=0750
+UMask=0077
+
+# --- изоляция ---
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+# запрещённый вызов вернёт ошибку, а не убьёт процесс
+SystemCallErrorNumber=EPERM
+# сеть: только loopback (nginx на этой же машине); наружу сервер не ходит
+IPAddressDeny=any
+IPAddressAllow=localhost
+MemoryMax=320M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

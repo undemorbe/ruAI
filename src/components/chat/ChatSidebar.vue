@@ -47,7 +47,7 @@ const groups = computed(() => {
 
     <RouterLink v-if="!isPaid" to="/pricing" class="side__upsell">
       <Icon name="bolt" :size="18" />
-      <span><b>Оформить подписку</b><small>GPT-OSS-20B — от 388 ₽ за 7 дней. История чатов сохраняется</small></span>
+      <span><b>Оформить подписку</b><small>От 388 ₽ за 7 дней. С фото и картинками — от 788 ₽</small></span>
     </RouterLink>
 
     <div class="side__user">

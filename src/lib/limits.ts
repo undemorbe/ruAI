@@ -79,11 +79,19 @@ export function limitMessage(code: LimitCode | undefined, retryAfter?: number): 
     case 'budget':
       return 'Лимит подписки исчерпан. Продлите подписку, чтобы продолжить.'
     case 'rate_limit':
-      return `Слишком часто: не больше ${LIMITS.perMinute} запросов в минуту и ${LIMITS.perHour} в час.${retryAfter ? ` Повторите через ${waitText(retryAfter)}.` : ''}`
+      return `Слишком много запросов подряд.${retryAfter ? ` Повторите через ${waitText(retryAfter)}.` : ' Попробуйте чуть позже.'}`
     case 'busy':
       return 'Дождитесь ответа на предыдущий запрос.'
     case 'too_long':
       return 'Сообщение слишком длинное. Сократите его или разбейте на части.'
+    case 'media_required':
+      return 'Фото и картинки доступны в тарифе «С фото и изображениями».'
+    case 'generation_limit':
+      return 'Генерации изображений в этом периоде закончились. Текстом и анализом фото можно пользоваться дальше.'
+    case 'generation_disabled':
+      return 'Генерация изображений временно недоступна. Текстом и анализом фото можно пользоваться.'
+    case 'bad_image':
+      return 'Не получилось загрузить файл. Подойдут JPG, PNG, WebP или HEIC до 10 МБ.'
     case 'upstream':
       return 'Модель не ответила. Попробуйте ещё раз — запрос не списан.'
     default:
@@ -92,4 +100,4 @@ export function limitMessage(code: LimitCode | undefined, retryAfter?: number): 
 }
 
 /** Коды, при которых помогает только оплата. */
-export const PAYWALL_CODES: LimitCode[] = ['no_subscription', 'total_limit', 'budget']
+export const PAYWALL_CODES: LimitCode[] = ['no_subscription', 'total_limit', 'budget', 'media_required']

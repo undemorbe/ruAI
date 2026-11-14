@@ -13,7 +13,8 @@ const totalLeft = computed(() => (props.usage ? Math.max(0, props.usage.totalLim
 const share = computed(() => (props.usage ? left.value / props.usage.dailyLimit : 0))
 const title = computed(() =>
   props.usage
-    ? `Сегодня осталось ${dailyLeft.value} из ${props.usage.dailyLimit} (сброс в 00:00 МСК). За период — ${totalLeft.value} из ${props.usage.totalLimit}.`
+    ? `Сегодня осталось ${dailyLeft.value} из ${props.usage.dailyLimit} (сброс в 00:00 МСК). За период — ${totalLeft.value} из ${props.usage.totalLimit}.` +
+      (props.usage.generationsLimit ? ` Генераций изображений — ${Math.max(0, props.usage.generationsLimit - props.usage.generationsUsed)} из ${props.usage.generationsLimit}.` : '')
     : '',
 )
 </script>

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api, ApiError, type ChatSummary, type LimitCode, type Message } from '@/api'
-import { CONTINUE_PROMPT, MODEL } from '@/config/app'
+import { api, ApiError, type ChatSummary, type ImageRef, type LimitCode, type Message } from '@/api'
+import { CONTINUE_PROMPT } from '@/config/app'
 import { uid } from '@/lib/id'
 import { limitMessage } from '@/lib/limits'
 import { useUserStore } from './user'
@@ -13,9 +13,18 @@ export interface Refusal {
   retryAfter?: number
   /** Текст, который не ушёл, — вернуть в поле ввода. */
   draft: string
+  /** Фото, которые не ушли, — вернуть во вложения. */
+  images: ImageRef[]
 }
 
-const LIMIT_CODES = new Set<string>(['no_subscription', 'daily_limit', 'total_limit', 'budget', 'rate_limit', 'busy', 'too_long'])
+export interface Draft {
+  text: string
+  images?: ImageRef[]
+  /** Сгенерировать картинку (с фото — отредактировать). */
+  generate?: boolean
+}
+
+const LIMIT_CODES = new Set<string>(['no_subscription', 'daily_limit', 'total_limit', 'budget', 'rate_limit', 'busy', 'too_long', 'media_required', 'generation_limit', 'generation_disabled', 'bad_image'])
 
 export const useChatStore = defineStore('chat', () => {
   const user = useUserStore()
@@ -47,9 +56,11 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   /** Sends a message and consumes the stream. Returns the chat id (new or existing). */
-  async function send(content: string): Promise<string | null> {
-    const text = content.trim()
-    if (!text || streaming.value) return activeId.value
+  async function send(input: string | Draft): Promise<string | null> {
+    const d: Draft = typeof input === 'string' ? { text: input } : input
+    const text = d.text.trim()
+    const images = d.images ?? []
+    if ((!text && !images.length) || streaming.value) return activeId.value
 
     error.value = null
     refusal.value = null
@@ -58,14 +69,15 @@ export const useChatStore = defineStore('chat', () => {
 
     const now = new Date().toISOString()
     const before = messages.value.length
-    messages.value.push({ id: uid('tmp_'), chatId: activeId.value ?? '', role: 'user', content: text, createdAt: now, status: 'done' })
+    messages.value.push({ id: uid('tmp_'), chatId: activeId.value ?? '', role: 'user', content: text, createdAt: now, status: 'done', ...(images.length ? { images } : {}) })
     const reply: Message = { id: uid('tmp_'), chatId: activeId.value ?? '', role: 'assistant', content: '', createdAt: now, status: 'streaming' }
     messages.value.push(reply)
     const live = messages.value[messages.value.length - 1]!
     let accepted = false
 
     try {
-      for await (const ev of api.chat.send({ chatId: activeId.value, content: text, model: MODEL.id }, controller.signal)) {
+      const payload = { chatId: activeId.value, content: text, ...(images.length ? { images: images.map((i) => i.id) } : {}), ...(d.generate ? { mode: 'image' as const } : {}) }
+      for await (const ev of api.chat.send(payload, controller.signal)) {
         if (ev.type === 'chat') {
           accepted = true
           activeId.value = ev.chat.id
@@ -74,6 +86,8 @@ export const useChatStore = defineStore('chat', () => {
           chats.value.unshift(ev.chat)
         } else if (ev.type === 'delta') {
           live.content += ev.text
+        } else if (ev.type === 'image') {
+          live.images = [...(live.images ?? []), ev.image]
         } else if (ev.type === 'done') {
           live.id = ev.message.id
           live.truncated = ev.message.truncated
@@ -91,7 +105,11 @@ export const useChatStore = defineStore('chat', () => {
         // запрос отклонён до модели — убираем черновые сообщения и возвращаем текст
         messages.value.splice(before)
         const err = e as ApiError
-        refusal.value = { code: code as LimitCode, message: err.message || limitMessage(code as LimitCode, err.retryAfter), retryAfter: err.retryAfter, draft: text }
+        refusal.value = { code: code as LimitCode, message: err.message || limitMessage(code as LimitCode, err.retryAfter), retryAfter: err.retryAfter, draft: text, images }
+      } else if (!live.content && !live.images?.length) {
+        // ошибка без результата — запрос не списан, пустой ответ не показываем
+        messages.value.splice(messages.value.length - 1)
+        error.value = (e as Error).message || limitMessage(code as LimitCode | undefined)
       } else {
         live.status = 'error'
         error.value = (e as Error).message || limitMessage(code as LimitCode | undefined)
@@ -101,6 +119,19 @@ export const useChatStore = defineStore('chat', () => {
       controller = null
     }
     return activeId.value
+  }
+
+  /** Загрузка фото; отказ (нет тарифа, не тот файл) — в refusal. */
+  async function upload(file: File): Promise<ImageRef | null> {
+    refusal.value = null
+    try {
+      return await api.chat.upload(file)
+    } catch (e) {
+      const err = e as ApiError
+      const code = (err.code ?? 'bad_image') as LimitCode
+      refusal.value = { code, message: err.message || limitMessage(code), draft: '', images: [] }
+      return null
+    }
   }
 
   /** «Продолжи» — отдельный запрос, списывается как обычный. */
@@ -116,5 +147,5 @@ export const useChatStore = defineStore('chat', () => {
     if (activeId.value === chatId) await open(null)
   }
 
-  return { chats, messages, activeId, activeChat, streaming, error, refusal, canContinue, loadChats, open, send, continueReply, stop, remove }
+  return { chats, messages, activeId, activeChat, streaming, error, refusal, canContinue, loadChats, open, send, upload, continueReply, stop, remove }
 })

@@ -25,3 +25,22 @@ jobs:
       - run: npm run build
         env:
           VITE_USE_MOCKS: 'true'
+      - run: npx vite build --config vite.admin.config.ts
+        env:
+          VITE_ADMIN_BASE: /ci-admin-path-placeholder-0123456789abcdef/
+
+  admin-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

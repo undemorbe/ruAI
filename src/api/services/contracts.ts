@@ -4,9 +4,11 @@ import type {
   CheckoutRequest,
   CheckoutSession,
   ID,
+  ImageRef,
   Message,
   PaymentInfo,
   Plan,
+  PlanTier,
   SendMessagePayload,
   User,
 } from '../types'
@@ -23,13 +25,15 @@ export interface AuthService {
 export interface ChatService {
   list(): Promise<ChatSummary[]>
   messages(chatId: ID): Promise<Message[]>
+  /** Загрузка фото (тариф с изображениями). */
+  upload(file: File): Promise<ImageRef>
   send(payload: SendMessagePayload, signal?: AbortSignal): AsyncIterable<ChatStreamEvent>
   rename(chatId: ID, title: string): Promise<void>
   remove(chatId: ID): Promise<void>
 }
 
 export interface BillingService {
-  plans(): Promise<Plan[]>
+  plans(tier: PlanTier): Promise<Plan[]>
   checkout(req: CheckoutRequest): Promise<CheckoutSession>
   payment(paymentId: ID): Promise<PaymentInfo>
 }
