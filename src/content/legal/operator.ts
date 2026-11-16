@@ -5,11 +5,26 @@
 export interface Operator {
   email: string
   site: string
+  /** Бот поддержки в Telegram (username без @): вопросы, оплата, возвраты. */
+  supportBot: string
+  /** Бот входа (username без @): привязка Telegram, 2FA, сброс пароля. Сам ни о чём не спрашивает. */
+  authBot: string
 }
 
 export const OPERATOR: Operator = {
-  email: 'support@ru-chatgpt.com',
+  email: 'support@mail.ru-chatgpt.com',
   site: 'https://ru-chatgpt.com',
+  supportBot: 'ruchatgptaibot',
+  authBot: 'ru_chat_gpt_auth_bot',
+}
+
+/** «@username» для текста. */
+export const tgHandle = (bot: string): string => `@${bot}`
+
+/** Ссылка на бота: только латиница, цифры и «_», иначе ошибка (защита от опечатки и подмены ссылки). */
+export function tgLink(bot: string): string {
+  if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(bot)) throw new Error(`bad telegram username: ${bot}`)
+  return `https://t.me/${bot}`
 }
 
 /**

@@ -26,6 +26,7 @@ export const testConfig = (over: Partial<ApiConfig> = {}): ApiConfig => ({
   authLog: '/dev/null',
   insecureCookie: false,
   payments: 'none',
+  freekassa: null,
   llmStub: false,
   ...over,
 })

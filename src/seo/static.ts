@@ -2,7 +2,7 @@ import { FAQ_INTRO, MAIN_NAV, PRICING_INTRO, landingSeo } from '@/content/landin
 import { AUTH_TEXT } from '@/content/auth'
 import { askExamples, faq } from '@/content/landing'
 import { LEGAL_DOCS, LEGAL_ORDER, type Block } from '@/content/legal/docs'
-import { OPERATOR, legalDate } from '@/content/legal/operator'
+import { OPERATOR, legalDate, tgHandle, tgLink } from '@/content/legal/operator'
 import { paymentPage } from '@/content/payment'
 import { TIER_LABEL, getPlans } from '@/content/plans'
 import type { PlanTier } from '@/api/types'
@@ -33,7 +33,7 @@ function crumbs(page: SeoPage): string {
 
 function footer(): string {
   const links = [a('/chat', 'Чат'), ...MAIN_NAV.map((n) => a(n.to, n.label)), a('/legal', 'Документы'), a('/legal/privacy', 'Конфиденциальность'), a('/legal/terms', 'Условия использования')]
-  return `<footer><nav aria-label="Подвал">${links.join(' · ')}</nav><p>Поддержка: ${e(OPERATOR.email)}</p><p>${e(DISCLAIMER)}</p></footer>`
+  return `<footer><nav aria-label="Подвал">${links.join(' · ')}</nav><p>Поддержка: ${e(OPERATOR.email)}, Telegram ${a(tgLink(OPERATOR.supportBot), tgHandle(OPERATOR.supportBot))}</p><p>${e(DISCLAIMER)}</p></footer>`
 }
 
 function plans(tier: PlanTier, level: 'h2' | 'h3'): string {
@@ -85,6 +85,8 @@ function main(page: SeoPage): string {
         h1,
         `<p>${e(DISCLAIMER)}</p>`,
         `<p>Email для обращений: ${e(OPERATOR.email)}</p>`,
+        `<p>Поддержка в Telegram: ${a(tgLink(OPERATOR.supportBot), tgHandle(OPERATOR.supportBot))}</p>`,
+        `<p>Вход и двухфакторная аутентификация: ${a(tgLink(OPERATOR.authBot), tgHandle(OPERATOR.authBot))}. Обращения не принимает, пароль и коды никогда не спрашивает.</p>`,
         ul(LEGAL_ORDER.map((s) => `${a(`/legal/${s}`, LEGAL_DOCS[s].title)}, редакция от ${e(legalDate(LEGAL_DOCS[s].version))}`)),
       ].join('')
     case 'legal-doc': {

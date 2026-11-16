@@ -50,3 +50,19 @@ test('токен бота необязателен, но кривой не пр�
   assert.throws(() => loadApiConfig({ ...base, TG_BOT_TOKEN: 'bad token' }), /TG_BOT_TOKEN/)
   assert.throws(() => loadApiConfig({ ...base, TG_BOT_TOKEN: '123:short' }), /TG_BOT_TOKEN/)
 })
+
+test('FreeKassa: без ключей оплата выключена, с ключами включена, проверка IP по умолчанию', () => {
+  const off = loadApiConfig(base)
+  assert.equal(off.payments, 'none')
+  assert.equal(off.freekassa, null)
+  const fk = { FREEKASSA_MERCHANT_ID: '12345', FREEKASSA_SECRET1: 'first-secret', FREEKASSA_SECRET2: 'second-secret' }
+  const on = loadApiConfig({ ...base, ...fk })
+  assert.equal(on.payments, 'freekassa')
+  assert.deepEqual(on.freekassa, { merchantId: '12345', secret1: 'first-secret', secret2: 'second-secret', payUrl: 'https://pay.fk.money/', ipCheck: true })
+  assert.equal(loadApiConfig({ ...base, ...fk, FREEKASSA_IP_CHECK: '0' }).freekassa!.ipCheck, false)
+  // неполные или неверные ключи: сервер не стартует, а не принимает оплату с пустой подписью
+  assert.throws(() => loadApiConfig({ ...base, FREEKASSA_MERCHANT_ID: '12345' }), /FREEKASSA_SECRET/)
+  assert.throws(() => loadApiConfig({ ...base, ...fk, FREEKASSA_MERCHANT_ID: 'shop' }), /FREEKASSA_MERCHANT_ID/)
+  assert.throws(() => loadApiConfig({ ...base, ...fk, FREEKASSA_SECRET2: 'first-secret' }), /различаться/)
+  assert.throws(() => loadApiConfig({ ...base, ...fk, FREEKASSA_PAY_URL: 'http://evil.example/' }), /FREEKASSA_PAY_URL/)
+})

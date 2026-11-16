@@ -3,7 +3,7 @@ import { router } from '@/router'
 import { formatPrice } from '@/lib/format'
 import { getPlans } from '../plans'
 import { AI_PROVIDER, LEGAL_DOCS, LEGAL_ORDER, isLegalSlug, type Block } from '../legal/docs'
-import { LEGAL_VERSION, OPERATOR, legalDate, operatorLine } from '../legal/operator'
+import { LEGAL_VERSION, OPERATOR, legalDate, operatorLine, tgHandle, tgLink } from '../legal/operator'
 
 const text = (blocks: Block[]) =>
   blocks.map((b) => (typeof b === 'string' ? b : 'list' in b ? b.list.join('\n') : [...b.table.head, ...b.table.rows.flat()].join('\n'))).join('\n')
@@ -101,6 +101,33 @@ describe('legal documents', () => {
       const d = LEGAL_DOCS[slug]
       expect(`${d.title}\n${d.lead}\n${whole(slug)}`, slug).not.toContain('—')
     }
+  })
+
+  it('боты: поддержка и вход с 2FA названы в документах, ссылки собираются безопасно', () => {
+    expect(OPERATOR.email).toBe('support@mail.ru-chatgpt.com')
+    expect(OPERATOR.supportBot).toBe('ruchatgptaibot')
+    expect(OPERATOR.authBot).toBe('ru_chat_gpt_auth_bot')
+    expect(tgHandle(OPERATOR.authBot)).toBe('@ru_chat_gpt_auth_bot')
+    expect(tgLink(OPERATOR.supportBot)).toBe('https://t.me/ruchatgptaibot')
+    for (const bad of ['', 'ab', 'bot/../x', 'x?start=1', 'evil.com', 'бот_поддержки', '1startsdigit']) expect(() => tgLink(bad), bad).toThrow()
+
+    const terms = whole('terms')
+    const privacy = whole('privacy')
+    const consent = whole('consent')
+    for (const t of [terms, privacy, consent]) {
+      expect(t).toContain('@ruchatgptaibot')
+      expect(t).toContain('@ru_chat_gpt_auth_bot')
+    }
+    // бот входа: второй фактор, не принимает обращения, пароль и коды не спрашиваем
+    expect(terms).toMatch(/@ru_chat_gpt_auth_bot: через него вход подтверждается вторым фактором/)
+    expect(terms).toMatch(/не принимает обращения/)
+    expect(terms).toMatch(/никогда не просим пароль, коды подтверждения и данные карты/)
+    // отмена автопродления, возврат и претензии принимаются и в боте поддержки
+    expect(terms.match(/или в бот поддержки @ruchatgptaibot/g)?.length).toBeGreaterThanOrEqual(3)
+    // FreeKassa без автосписаний: условия не обещают автопродление
+    expect(terms).toMatch(/Автопродления нет/)
+    expect(terms).not.toMatch(/Отмена автопродления/)
+    expect(privacy).toMatch(/переписка, если вы пишете в бот поддержки @ruchatgptaibot/)
   })
 
   it('документы описывают вход по логину и Telegram, без кодов из письма', () => {

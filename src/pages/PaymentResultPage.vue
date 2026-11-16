@@ -5,6 +5,7 @@ import { api, type PaymentInfo } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
 import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
+import { LAST_PAYMENT_KEY, resultPaymentId } from '@/config/payments'
 import { formatPrice } from '@/lib/format'
 import { useUserStore } from '@/stores/user'
 
@@ -15,10 +16,18 @@ const failed = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 let tries = 0
 
+function storedPayment(): string | null {
+  try {
+    return sessionStorage.getItem(LAST_PAYMENT_KEY)
+  } catch {
+    return null
+  }
+}
+
 /** Polls payment status: provider webhooks update it on the backend asynchronously. */
 async function poll() {
-  const id = route.query.paymentId
-  if (typeof id !== 'string') {
+  const id = resultPaymentId(route.query, storedPayment())
+  if (!id) {
     failed.value = true
     return
   }

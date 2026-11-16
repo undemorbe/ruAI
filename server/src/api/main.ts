@@ -4,6 +4,7 @@ import { dirname } from 'node:path'
 import { buildApiApp } from './app.ts'
 import { loadApiConfig } from './config.ts'
 import { Db } from './db.ts'
+import { freeKassaProvider } from './freekassa.ts'
 import { ImageFiles } from './images.ts'
 import { releaseStale } from './ledger.ts'
 import { openRouter, stubLlm } from './openrouter.ts'
@@ -52,7 +53,10 @@ if (cfg.tgToken) {
     process.stderr.write(`telegram off: ${(e as Error).message}\n`)
   }
 }
-const app = buildApiApp(cfg, { db, files, tg, tgApi, llm: cfg.llmStub ? stubLlm() : cfg.openrouterKey ? openRouter(cfg.openrouterKey, cfg.origin) : null, authLog })
+// оплата: FreeKassa, если в /etc/ruai-api.env заданы её ключи; иначе checkout отвечает 503
+const provider = cfg.freekassa ? freeKassaProvider(cfg.freekassa) : undefined
+process.stderr.write(`payments: ${cfg.payments}${cfg.freekassa ? ` ip-check=${cfg.freekassa.ipCheck ? 'on' : 'off'}` : ''}\n`)
+const app = buildApiApp(cfg, { db, files, tg, tgApi, provider, llm: cfg.llmStub ? stubLlm() : cfg.openrouterKey ? openRouter(cfg.openrouterKey, cfg.origin) : null, authLog })
 const stopTg = new AbortController()
 if (tgApi && app.tgBot) {
   const bot = app.tgBot

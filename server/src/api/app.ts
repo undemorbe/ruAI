@@ -9,6 +9,7 @@ import multipart from '@fastify/multipart'
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { ChatStreamEvent, ChatSummary, CheckoutRequest, ImageRef, LimitCode, Message, PlanTier, RegisterConsent, SendMessagePayload } from '@/api/types'
 import { LIMITS, UPLOAD } from '@/config/app'
+import { AUTO_RENEW, CHECKOUT_CONSENTS } from '@/config/payments'
 import { getPlans } from '@/content/plans'
 import { isEmail, normalizeEmail } from '@/lib/auth'
 import { buildContext, estimateTokens, limitMessage } from '@/lib/limits'
@@ -189,6 +190,12 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
       parts: 1,
       headerPairs: 50,
     },
+  })
+
+  // форма (x-www-form-urlencoded) нужна только оповещениям платёжного провайдера: на остальных путях 415
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string', bodyLimit: 16 * 1024 }, (req, body, done) => {
+    if (!req.url.startsWith('/api/billing/webhook/')) return done(Object.assign(new Error('Unsupported Media Type'), { statusCode: 415 }), undefined)
+    done(null, Object.fromEntries(new URLSearchParams(body as string)))
   })
 
   app.addHook('onSend', async (_req, reply, payload) => {
@@ -717,7 +724,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
         if (!current) throw new Refusal('auth_required')
         const email = normalizeEmail(b.email)
         if (!isEmail(email)) return reply.code(400).send({ message: 'Введите корректный email для чека', code: 'bad_email' })
-        const need = ['terms', 'recurring']
+        const need = [...CHECKOUT_CONSENTS]
         if (!consentOk(b.consent, need))
           return reply.code(422).send({
             message: 'Обновите страницу и примите документы заново',
@@ -745,6 +752,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
             provider: provider.name,
             req: { ...b, email },
             now: t,
+            autoRenew: AUTO_RENEW,
           })
         })
         const r = await provider.create({
@@ -753,8 +761,8 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           description: `Подписка ${b.planId}, ${b.tier}`,
           email,
           method: b.method,
-          returnUrl: `${cfg.origin}/checkout/result?payment=${id}`,
-          recurring: true,
+          returnUrl: `${cfg.origin}/payment/result?paymentId=${id}`,
+          recurring: AUTO_RENEW,
         })
         attachProviderId(db, id, r.providerId)
         return { paymentId: id, confirmationUrl: r.confirmationUrl }
@@ -782,18 +790,27 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
         },
       )
 
-      api.post<{ Params: { provider: string } }>('/billing/webhook/:provider', async (req, reply) => {
+      // уведомления провайдера: POST (JSON или форма) и GET (FreeKassa можно настроить на GET)
+      const webhook = async (req: FastifyRequest<{ Params: { provider: string } }>, reply: FastifyReply) => {
         if (!provider.enabled || req.params.provider !== provider.name) return reply.code(404).send({ message: 'Не найдено' })
         const ev = await provider.parseWebhook({
           headers: req.headers,
           body: req.body,
+          query: req.query,
           ip: req.ip,
         })
-        if (!ev) return reply.code(400).send({ message: 'Неверное уведомление' })
+        if (!ev) {
+          req.log.warn({ ip: req.ip }, 'payment webhook rejected')
+          return reply.code(400).send({ message: 'Неверное уведомление' })
+        }
         const r = applyPaymentStatus(db, provider.name, ev, now())
-        if (r === 'mismatch') req.log.warn({ providerId: ev.providerId }, 'payment amount mismatch')
+        // mismatch и unknown финальны: подтверждаем, чтобы провайдер не слал повторы, и пишем в журнал
+        if (r === 'mismatch' || r === 'unknown') req.log.warn({ providerId: ev.providerId, result: r }, 'payment webhook not applied')
+        if (provider.ack) return reply.type('text/plain; charset=utf-8').send(provider.ack)
         return { ok: true }
-      })
+      }
+      api.post<{ Params: { provider: string } }>('/billing/webhook/:provider', webhook)
+      api.get<{ Params: { provider: string } }>('/billing/webhook/:provider', webhook)
     },
     { prefix: '/api' },
   )

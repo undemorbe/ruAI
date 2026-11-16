@@ -1,5 +1,5 @@
 import { faq } from '@/content/landing'
-import { OPERATOR } from '@/content/legal/operator'
+import { OPERATOR, tgLink } from '@/content/legal/operator'
 import { PLAN_TABLE, PRICES, TIER_LABEL } from '@/content/plans'
 import type { PlanId, PlanTier } from '@/api/types'
 import type { SeoPage } from './pages'
@@ -24,7 +24,7 @@ export function organization(): Node {
     logo: { '@type': 'ImageObject', url: absUrl(LOGO_PATH), width: 512, height: 512 },
     email: OPERATOR.email,
     description: DISCLAIMER,
-    contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: OPERATOR.email, availableLanguage: 'Russian' },
+    contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: OPERATOR.email, url: tgLink(OPERATOR.supportBot), availableLanguage: 'Russian' },
   }
 }
 

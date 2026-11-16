@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { OPERATOR } from '@/content/legal/operator'
+import { OPERATOR, tgLink } from '@/content/legal/operator'
 </script>
 
 <template>
@@ -11,7 +11,7 @@ import { OPERATOR } from '@/content/legal/operator'
       <RouterLink to="/payment">Оплата в рублях</RouterLink>
       <RouterLink to="/faq">Вопросы</RouterLink>
       <RouterLink :to="{ name: 'legal' }">Документы</RouterLink>
-      <a :href="`mailto:${OPERATOR.email}`">Поддержка</a>
+      <a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">Поддержка</a>
     </nav>
     <span class="qf__legal">© {{ new Date().getFullYear() }} · <RouterLink :to="{ name: 'legal', params: { doc: 'privacy' } }">Конфиденциальность</RouterLink> ·
       <RouterLink :to="{ name: 'legal', params: { doc: 'terms' } }">Условия</RouterLink><br />Независимый сервис, не связан с OpenAI. ChatGPT — товарный знак OpenAI.</span>

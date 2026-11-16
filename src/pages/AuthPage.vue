@@ -6,7 +6,7 @@ import { MOCK_CODE } from '@/api/mocks'
 import BrandMark from '@/components/ui/BrandMark.vue'
 import { env } from '@/config/env'
 import { AUTH_TEXT } from '@/content/auth'
-import { LEGAL_VERSION } from '@/content/legal/operator'
+import { LEGAL_VERSION, OPERATOR, tgHandle, tgLink } from '@/content/legal/operator'
 import { CODE_LENGTH, LOGIN_MAX, PASSWORD_MAX, cleanCode, isCode, loginError, passwordError, safeNext } from '@/lib/auth'
 import { useUserStore } from '@/stores/user'
 
@@ -301,7 +301,9 @@ async function forgot() {
             {{ busy ? 'Отправляем…' : 'Отправить ссылку в Telegram' }}
           </button>
         </form>
-        <p class="au__hint au__note">Если Telegram не был подключён, восстановить пароль можно только через поддержку.</p>
+        <p class="au__hint au__note">Если Telegram не был подключён, восстановить пароль можно только через поддержку:
+          <a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a>.
+        </p>
         <div class="au__row">
           <button type="button" class="au__link" @click="backToForm(null)">Ко входу</button>
         </div>

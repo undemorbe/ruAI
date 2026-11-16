@@ -25,8 +25,10 @@ export interface ApiConfig {
   authLog: string
   /** http://localhost: cookie без __Host-/Secure. */
   insecureCookie: boolean
-  /** Платёжный провайдер; пока none: оплата выключена (503). */
-  payments: 'none'
+  /** Платёжный провайдер: freekassa, если заданы все её ключи; none: оплата выключена (503). */
+  payments: 'none' | 'freekassa'
+  /** Ключи FreeKassa (кабинет → Настройки магазина); null, если оплата выключена. */
+  freekassa: { merchantId: string; secret1: string; secret2: string; payUrl: string; ipCheck: boolean } | null
   /** Локальная разработка без OpenRouter: ответы-заглушки (только localhost). */
   llmStub: boolean
 }
@@ -62,6 +64,19 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const cap = Number(env.API_DAILY_USD_CAP ?? 30)
   if (!(cap > 0 && cap <= 10_000)) errors.push('API_DAILY_USD_CAP: число от 0 до 10000')
 
+  // FreeKassa необязательна: без ключей сайт работает, оформление оплаты отвечает 503
+  const fkId = env.FREEKASSA_MERCHANT_ID?.trim() ?? ''
+  const fk1 = env.FREEKASSA_SECRET1?.trim() ?? ''
+  const fk2 = env.FREEKASSA_SECRET2?.trim() ?? ''
+  const fkPay = env.FREEKASSA_PAY_URL?.trim() || 'https://pay.fk.money/'
+  const fkAny = !!(fkId || fk1 || fk2)
+  if (fkAny) {
+    if (!/^\d{1,10}$/.test(fkId)) errors.push('FREEKASSA_MERCHANT_ID: число (ID магазина в кабинете FreeKassa)')
+    if (fk1.length < 8 || fk2.length < 8) errors.push('FREEKASSA_SECRET1 и FREEKASSA_SECRET2: секретные слова из кабинета, не короче 8 символов')
+    if (fk1 && fk1 === fk2) errors.push('FREEKASSA_SECRET1 и FREEKASSA_SECRET2 должны различаться')
+    if (!/^https:\/\/[a-z0-9.-]+\/$/i.test(fkPay)) errors.push('FREEKASSA_PAY_URL: https://домен/')
+  }
+
   if (errors.length) throw new Error(`Конфигурация API:\n- ${errors.join('\n- ')}`)
 
   const dataDir = env.API_DATA_DIR?.trim() || '/var/lib/ruai'
@@ -82,7 +97,8 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     tgToken,
     authLog: env.API_AUTH_LOG?.trim() || '/var/log/ruai-api/auth.log',
     insecureCookie: local,
-    payments: 'none',
+    payments: fkAny ? 'freekassa' : 'none',
+    freekassa: fkAny ? { merchantId: fkId, secret1: fk1, secret2: fk2, payUrl: fkPay, ipCheck: env.FREEKASSA_IP_CHECK?.trim() !== '0' } : null,
     llmStub: local && env.LLM_STUB === '1',
   }
 }

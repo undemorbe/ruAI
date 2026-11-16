@@ -73,8 +73,10 @@ test('оплата выключена: 503 payments_disabled, но соглас�
   const t = setup()
   const v = t.consent.version
   await t.register('payer')
-  assert.equal((await t.req('POST', '/api/billing/checkout', checkout({ consent: { version: v, terms: true, recurring: false } }))).json().code, 'consent', 'без согласия на автопродление')
-  const r = await t.req('POST', '/api/billing/checkout', checkout({ consent: { version: v, terms: true, recurring: true } }))
+  assert.equal((await t.req('POST', '/api/billing/checkout', checkout({ consent: { version: v, terms: false, recurring: false } }))).json().code, 'consent', 'без условий использования')
+  assert.equal((await t.req('POST', '/api/billing/checkout', checkout({ consent: { version: 'old', terms: true, recurring: false } }))).json().code, 'consent', 'старая редакция')
+  // автопродления нет (AUTO_RENEW = false): согласие на автосписания не требуется
+  const r = await t.req('POST', '/api/billing/checkout', checkout({ consent: { version: v, terms: true, recurring: false } }))
   assert.equal(r.statusCode, 503)
   assert.equal(r.json().code, 'payments_disabled')
   assert.equal(t.db.get('SELECT * FROM payments'), undefined)

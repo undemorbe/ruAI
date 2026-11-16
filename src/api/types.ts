@@ -181,8 +181,8 @@ export interface RegisterConsent {
 export interface CheckoutConsent {
   version: string
   terms: true
-  /** Согласие на автоматические списания (рекуррентные платежи). */
-  recurring: true
+  /** Согласие на автоматические списания (рекуррентные платежи). Нужно, только если AUTO_RENEW (src/config/payments.ts). */
+  recurring: boolean
 }
 
 export interface CheckoutRequest {

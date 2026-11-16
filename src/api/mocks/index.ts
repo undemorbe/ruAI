@@ -4,6 +4,7 @@ import { storage } from '@/lib/storage'
 import { sleep, uid } from '@/lib/id'
 import { buildContext, estimateTokens, freshUsage, limitMessage, nextMskMidnight, rateWait } from '@/lib/limits'
 import { LEGAL_VERSION } from '@/content/legal/operator'
+import { checkoutConsentOk as consentOkFor } from '@/config/payments'
 import { isEmail, loginError, normalizeEmail, normalizeLogin, passwordError } from '@/lib/auth'
 import { ApiError } from '../http'
 import type { AuthService, BillingService, ChatService } from '../services/contracts'
@@ -145,8 +146,7 @@ const secret = () => uid('').replace(/[^\w-]/g, '').padEnd(22, 'x').slice(0, 22)
 export const registerConsentOk = (c?: Partial<RegisterConsent>): c is RegisterConsent =>
   !!c && c.version === LEGAL_VERSION && c.terms === true && c.personalData === true
 
-export const checkoutConsentOk = (c: Partial<CheckoutConsent> | undefined): c is CheckoutConsent =>
-  !!c && c.version === LEGAL_VERSION && c.terms === true && c.recurring === true
+export const checkoutConsentOk = (c: Partial<CheckoutConsent> | undefined): c is CheckoutConsent => consentOkFor(c, LEGAL_VERSION)
 
 /** Текущий аккаунт мока (по сохранённому пользователю). */
 const current = (): MockAccount | null => {
@@ -255,7 +255,7 @@ export const mockAuth: AuthService = {
     const a = needAccount()
     if (a.telegram) throw new ApiError('Telegram уже подключён', 409, 'tg_linked')
     setTimeout(() => saveAccount({ ...loadAccounts()[a.login]!, telegram: true }), MOCK_TG_DELAY)
-    return { url: 'https://t.me/ruchatgpt_auth_bot?start=mock', expiresAt: ttl(10 * 60_000) }
+    return { url: 'https://t.me/ru_chat_gpt_auth_bot?start=mock', expiresAt: ttl(10 * 60_000) }
   },
   async unlinkTelegram() {
     await sleep(200)
@@ -529,7 +529,7 @@ export const mockBilling: BillingService = {
     if (!PRICES[req.tier]?.[req.planId]) throw new Error('Тариф не найден')
     // оплата только из аккаунта, как на сервере
     if (loadUser().isGuest) throw refuse('auth_required')
-    if (!checkoutConsentOk(req.consent)) throw new ApiError('Нужно принять условия оплаты и автопродления', 422, 'consent_required')
+    if (!checkoutConsentOk(req.consent)) throw new ApiError('Нужно принять условия оплаты', 422, 'consent_required')
     const email = normalizeEmail(req.email ?? '')
     if (!isEmail(email)) throw new ApiError('Введите корректный email для чека', 400, 'bad_email')
     const acc = current()

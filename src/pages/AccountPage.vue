@@ -5,6 +5,7 @@ import { api } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
 import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
+import { OPERATOR, tgHandle, tgLink } from '@/content/legal/operator'
 import { TIER_LABEL } from '@/content/plans'
 import { PASSWORD_MAX, passwordError } from '@/lib/auth'
 import { useUserStore } from '@/stores/user'
@@ -105,7 +106,9 @@ async function logout() {
           <button v-else type="button" class="btn btn--ghost" @click="unlink">Отключить Telegram</button>
           <p v-if="unlinkError" class="err" role="alert">{{ unlinkError }}</p>
         </template>
-        <p v-else-if="!user.user.tgEnabled" class="note">Подключение Telegram временно недоступно. Пароль пока можно восстановить только через поддержку.</p>
+        <p v-else-if="!user.user.tgEnabled" class="note">Подключение Telegram временно недоступно. Пароль пока можно восстановить только через поддержку:
+          <a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a>.
+        </p>
         <UnprotectedBanner v-else variant="block" />
       </section>
 

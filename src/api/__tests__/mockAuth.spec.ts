@@ -103,10 +103,10 @@ describe('mock checkout', () => {
     expect(localStorage.getItem('ruai.mock.accounts')).toBeNull()
   })
 
-  it('signed-in user needs terms and recurring; pays for their own account', async () => {
+  it('signed-in user needs current terms (no autorenew with FreeKassa); pays for their own account', async () => {
     const { user } = await mockAuth.register('boris', 'correct horse', consent)
-    // @ts-expect-error: без согласия на автопродление нельзя
-    expect(await code(() => mockBilling.checkout({ ...base, consent: { version: LEGAL_VERSION, terms: true } }))).toBe('consent_required')
+    // @ts-expect-error: без согласия с условиями нельзя
+    expect(await code(() => mockBilling.checkout({ ...base, consent: { version: LEGAL_VERSION, terms: false, recurring: false } }))).toBe('consent_required')
     expect(await code(() => mockBilling.checkout({ ...base, consent: { ...ok, version: 'old' } }))).toBe('consent_required')
     expect(await code(() => mockBilling.checkout({ ...base, email: 'nope', consent: ok }))).toBe('bad_email')
     expect(await code(() => mockBilling.checkout({ ...base, email: ' A@B.ru ', consent: ok }))).toBe('ok')

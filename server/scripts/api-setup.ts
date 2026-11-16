@@ -1,5 +1,5 @@
 /**
- * Настройка API сайта на сервере: ключ OpenRouter и токен бота входа.
+ * Настройка API сайта на сервере: ключ OpenRouter, токен бота входа и ключи FreeKassa.
  *
  *   node --import ./src/register.ts scripts/api-setup.ts --origin https://ru-chatgpt.com --write /etc/ruai-api.env
  *
@@ -32,7 +32,13 @@ console.log('\nБот входа: @BotFather → /newbot, токен вида 12
 const tgToken = (await ask('TG_BOT_TOKEN (ввод скрыт): ')).trim() || (envValue(old, 'TG_BOT_TOKEN') ?? '')
 const cap = Number(await askVisible('Предохранитель: максимум расходов OpenRouter в сутки, $', envValue(old, 'API_DAILY_USD_CAP') ?? '30'))
 
-const v: ApiEnvValues = { origin, pepper: keepPepper ?? newPepper(), openrouterKey, tgToken, dailyUsdCap: cap }
+console.log('\nFreeKassa: кабинет → Настройки магазина. URL оповещения: ' + (origin || 'https://<домен>') + '/api/billing/webhook/freekassa')
+console.log('Пустой ввод: оставить прежние ключи (или оплата выключена, если их не было).')
+const fkMerchantId = (await askVisible('FREEKASSA_MERCHANT_ID (ID магазина)', envValue(old, 'FREEKASSA_MERCHANT_ID') ?? '')).trim()
+const fkSecret1 = (await ask('FREEKASSA_SECRET1, секретное слово 1 (ввод скрыт): ')).trim() || (envValue(old, 'FREEKASSA_SECRET1') ?? '')
+const fkSecret2 = (await ask('FREEKASSA_SECRET2, секретное слово 2 (ввод скрыт): ')).trim() || (envValue(old, 'FREEKASSA_SECRET2') ?? '')
+
+const v: ApiEnvValues = { origin, pepper: keepPepper ?? newPepper(), openrouterKey, tgToken, dailyUsdCap: cap, fkMerchantId, fkSecret1, fkSecret2 }
 const errors = validateApiEnv(v)
 if (errors.length) {
   console.error(`\nНе записано:\n- ${errors.join('\n- ')}`)

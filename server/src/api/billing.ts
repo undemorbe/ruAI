@@ -1,6 +1,6 @@
 /**
- * Оплата. Провайдер (ЮKassa, CloudPayments…) подключается реализацией PaymentProvider;
- * пока подключён DisabledProvider и checkout отвечает 503.
+ * Оплата. Провайдер подключается реализацией PaymentProvider: FreeKassa (freekassa.ts),
+ * если в /etc/ruai-api.env заданы её ключи; иначе disabledProvider и checkout отвечает 503.
  *
  * Правила, которые уже действуют для любого провайдера:
  * - сумма платежа берётся с сервера (PRICES), клиент её не передаёт;
@@ -23,12 +23,14 @@ export interface ProviderEvent {
 export interface PaymentProvider {
   readonly name: string
   readonly enabled: boolean
+  /** Текст ответа на принятое оповещение (FreeKassa ждёт «YES»); без него ответ { ok: true }. */
+  readonly ack?: string
   create(p: { paymentId: string; amount: number; description: string; email: string; method: PaymentMethod; returnUrl: string; recurring: boolean }): Promise<{
     providerId: string
     confirmationUrl: string
   }>
   /** Проверяет подпись/IP уведомления и достаёт статус. null: не наше или подделка. */
-  parseWebhook(req: { headers: Record<string, string | string[] | undefined>; body: unknown; ip: string }): Promise<ProviderEvent | null>
+  parseWebhook(req: { headers: Record<string, string | string[] | undefined>; body: unknown; query?: unknown; ip: string }): Promise<ProviderEvent | null>
 }
 
 export const disabledProvider: PaymentProvider = {
@@ -54,13 +56,13 @@ interface PaymentRow {
   auto_renew: number
 }
 
-export function createPendingPayment(db: Db, a: { userId: string; provider: string; req: CheckoutRequest; now: number }) {
+export function createPendingPayment(db: Db, a: { userId: string; provider: string; req: CheckoutRequest; now: number; autoRenew?: boolean }) {
   const id = newId('pay')
   const amount = PRICES[a.req.tier][a.req.planId]
   const repeat = db.get<{ n: number }>("SELECT COUNT(*) AS n FROM payments WHERE user_id = ? AND status = 'succeeded' AND amount > 0", a.userId)!.n > 0
   db.run(
     `INSERT INTO payments (id, user_id, provider, tier, plan_id, amount, status, repeat, auto_renew, consent, receipt_email, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`,
     id,
     a.userId,
     a.provider,
@@ -68,6 +70,7 @@ export function createPendingPayment(db: Db, a: { userId: string; provider: stri
     a.req.planId,
     amount,
     repeat ? 1 : 0,
+    a.autoRenew ? 1 : 0,
     JSON.stringify(a.req.consent),
     a.req.email,
     a.now,

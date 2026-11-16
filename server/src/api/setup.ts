@@ -10,6 +10,10 @@ export interface ApiEnvValues {
   /** Пусто: бот входа не подключён (вход по паролю без 2FA). */
   tgToken: string
   dailyUsdCap: number
+  /** FreeKassa: все три пустые, если оплата пока не подключена. */
+  fkMerchantId?: string
+  fkSecret1?: string
+  fkSecret2?: string
 }
 
 export const newPepper = () => randomBytes(32).toString('base64url')
@@ -21,6 +25,13 @@ export function validateApiEnv(v: ApiEnvValues): string[] {
   if (v.openrouterKey && !/^[\w-]{20,200}$/.test(v.openrouterKey)) e.push('Ключ OpenRouter: ожидается sk-or-…')
   if (v.tgToken && !TG_TOKEN.test(v.tgToken)) e.push('Токен бота: 123456:ABC… из @BotFather')
   if (!(v.dailyUsdCap > 0 && v.dailyUsdCap <= 10_000)) e.push('Суточный лимит расходов: от 0 до 10000 $')
+  const fk = [v.fkMerchantId ?? '', v.fkSecret1 ?? '', v.fkSecret2 ?? '']
+  if (fk.some(Boolean)) {
+    if (!/^\d{1,10}$/.test(fk[0]!)) e.push('FreeKassa: ID магазина (число из кабинета)')
+    if (fk[1]!.length < 8 || fk[2]!.length < 8) e.push('FreeKassa: секретные слова 1 и 2 из кабинета, не короче 8 символов')
+    if (fk[1] && fk[1] === fk[2]) e.push('FreeKassa: секретные слова 1 и 2 должны различаться')
+    if (fk.some((x) => /[\s'"\\$`]/.test(x))) e.push('FreeKassa: пробелы, кавычки, $ и обратная косая черта в ключах не поддерживаются')
+  }
   return e
 }
 
@@ -33,6 +44,9 @@ export function renderApiEnv(v: ApiEnvValues): string {
     v.openrouterKey ? `OPENROUTER_API_KEY=${v.openrouterKey}` : '# OPENROUTER_API_KEY= (не задан: ответы модели выключены)',
     v.tgToken ? `TG_BOT_TOKEN=${v.tgToken}` : '# TG_BOT_TOKEN= (не задан: вход без Telegram-2FA)',
     `API_DAILY_USD_CAP=${v.dailyUsdCap}`,
+    ...(v.fkMerchantId
+      ? ['# FreeKassa: URL оповещения в кабинете https://<домен>/api/billing/webhook/freekassa', `FREEKASSA_MERCHANT_ID=${v.fkMerchantId}`, `FREEKASSA_SECRET1=${v.fkSecret1}`, `FREEKASSA_SECRET2=${v.fkSecret2}`]
+      : ['# FREEKASSA_MERCHANT_ID= (не задан: оплата выключена)']),
     'API_DATA_DIR=/var/lib/ruai',
     'API_AUTH_LOG=/var/log/ruai-api/auth.log',
     '# Модели (по умолчанию из src/config/app.ts):',

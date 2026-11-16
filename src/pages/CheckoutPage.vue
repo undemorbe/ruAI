@@ -7,6 +7,7 @@ import AuthDialog from '@/components/ui/AuthDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
 import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
 import { MODEL_NAME } from '@/config/app'
+import { AUTO_RENEW, LAST_PAYMENT_KEY } from '@/config/payments'
 import { LEGAL_VERSION } from '@/content/legal/operator'
 import { TIER_LABEL } from '@/content/plans'
 import { isEmail, normalizeEmail } from '@/lib/auth'
@@ -30,7 +31,7 @@ const agreeRecurring = ref(false)
 /** Оплата только из аккаунта: гостю - предложение войти (сервер всё равно ответит 401). */
 const needAuth = computed(() => user.ready && user.isGuest)
 const authAsk = ref(false)
-const agreed = computed(() => agreeTerms.value && agreeRecurring.value)
+const agreed = computed(() => agreeTerms.value && (!AUTO_RENEW || agreeRecurring.value))
 const submitting = ref(false)
 const error = ref<string | null>(null)
 const touched = ref(false)
@@ -69,8 +70,14 @@ async function pay() {
       tier: tier.value,
       method: method.value,
       email: normalizeEmail(email.value),
-      consent: { version: LEGAL_VERSION, terms: true, recurring: true },
+      consent: { version: LEGAL_VERSION, terms: true, recurring: AUTO_RENEW },
     })
+    // FreeKassa может вернуть на сайт без номера платежа: страница результата возьмёт его отсюда
+    try {
+      sessionStorage.setItem(LAST_PAYMENT_KEY, session.paymentId)
+    } catch {
+      /* приватный режим: номер придёт в адресе */
+    }
     const base = import.meta.env.BASE_URL
     if (session.confirmationUrl.startsWith(base)) {
       await router.push('/' + session.confirmationUrl.slice(base.length))
@@ -152,7 +159,7 @@ async function pay() {
               <RouterLink :to="{ name: 'legal', params: { doc: 'privacy' } }" target="_blank">политику обработки персональных данных</RouterLink>
             </span>
           </label>
-          <label class="agree">
+          <label v-if="AUTO_RENEW" class="agree">
             <input v-model="agreeRecurring" type="checkbox" />
             <span v-if="plan">
               Согласен(на) на автоматическое списание {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока не отменю подписку.
@@ -183,7 +190,8 @@ async function pay() {
             <dl>
               <div class="total"><dt>К оплате</dt><dd>{{ formatPrice(plan.price) }} ₽</dd></div>
             </dl>
-            <p class="sum__note">Доступ открывается сразу после оплаты. Далее — {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока вы не отмените подписку.</p>
+            <p v-if="AUTO_RENEW" class="sum__note">Доступ открывается сразу после оплаты. Далее {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока вы не отмените подписку.</p>
+            <p v-else class="sum__note">Доступ открывается сразу после оплаты и действует {{ plan.periodDays }} дн. Автосписаний нет.</p>
           </template>
           <div v-else class="sum__skel" />
         </aside>

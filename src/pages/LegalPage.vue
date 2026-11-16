@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import { LEGAL_DOCS, LEGAL_ORDER, isLegalSlug } from '@/content/legal/docs'
-import { OPERATOR, legalDate } from '@/content/legal/operator'
+import { OPERATOR, legalDate, tgHandle, tgLink } from '@/content/legal/operator'
 import { consent, resetConsent } from '@/lib/analytics'
 
 const route = useRoute()
@@ -75,6 +75,16 @@ const consentLabel = computed(() =>
           <div>
             <dt>Email для обращений</dt>
             <dd><a :href="`mailto:${OPERATOR.email}`">{{ OPERATOR.email }}</a></dd>
+          </div>
+          <div>
+            <dt>Поддержка в Telegram</dt>
+            <dd><a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a></dd>
+          </div>
+          <div>
+            <dt>Вход и двухфакторная аутентификация</dt>
+            <dd>
+              <a :href="tgLink(OPERATOR.authBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.authBot) }}</a>: подтверждение входа и сброс пароля. Обращения не принимает, пароль и коды никогда не спрашивает.
+            </dd>
           </div>
         </dl>
         <h2>Документы</h2>

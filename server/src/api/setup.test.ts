@@ -14,7 +14,7 @@ const v: ApiEnvValues = {
 const parse = (text: string) => {
   const env: Record<string, string> = {}
   for (const line of text.split('\n')) {
-    const m = /^([A-Z_]+)=(.*)$/.exec(line)
+    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line)
     if (m) env[m[1]!] = m[2]!.replace(/^'(.*)'$/, '$1')
   }
   return env
@@ -48,4 +48,19 @@ test('env без ключа OpenRouter и токена бота: строки з
   const cfg = loadApiConfig(parse(text))
   assert.equal(cfg.openrouterKey, '')
   assert.equal(cfg.tgToken, '')
+})
+
+test('FreeKassa: ключи пишутся в env-файл и включают оплату; неполные и опасные не записываются', () => {
+  const fk = { ...v, fkMerchantId: '12345', fkSecret1: 'first-secret', fkSecret2: 'second-secret' }
+  assert.deepEqual(validateApiEnv(fk), [])
+  const text = renderApiEnv(fk)
+  assert.match(text, /\/api\/billing\/webhook\/freekassa/)
+  const cfg = loadApiConfig(parse(text))
+  assert.equal(cfg.payments, 'freekassa')
+  assert.equal(cfg.freekassa!.secret2, 'second-secret')
+  assert.equal(loadApiConfig(parse(renderApiEnv(v))).payments, 'none', 'без ключей оплата выключена')
+  assert.ok(validateApiEnv({ ...fk, fkSecret2: '' }).length, 'неполные ключи')
+  assert.ok(validateApiEnv({ ...fk, fkSecret2: fk.fkSecret1 }).length, 'одинаковые секреты')
+  assert.ok(validateApiEnv({ ...fk, fkSecret1: 'abc defgh$X' }).length, 'пробел и $ в секрете')
+  assert.ok(validateApiEnv({ ...fk, fkMerchantId: '1\nAPI_PEPPER=x' }).length, 'перевод строки не подсунет переменную')
 })
