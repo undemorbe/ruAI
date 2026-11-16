@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import type { ImageRef } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
 import { MODEL_NAME, UPLOAD } from '@/config/app'
+import { isImageFile } from '@/lib/image'
 import type { Draft } from '@/stores/chat'
 
 /**
@@ -22,6 +23,14 @@ const images = ref<ImageRef[]>([])
 const uploading = ref(0)
 const generate = ref(false)
 const dragging = ref(false)
+/** Почему часть файлов не прикрепилась (не фото, больше лимита). */
+const warn = ref('')
+let warnTimer: ReturnType<typeof setTimeout> | undefined
+function say(msg: string) {
+  warn.value = msg
+  clearTimeout(warnTimer)
+  warnTimer = setTimeout(() => (warn.value = ''), 6000)
+}
 const el = ref<HTMLTextAreaElement | null>(null)
 const fileIn = ref<HTMLInputElement | null>(null)
 
@@ -42,7 +51,12 @@ watch(text, () => nextTick(autosize))
 
 async function addFiles(files: FileList | File[]) {
   if (!props.canMedia) return emit('locked')
-  const list = [...files].filter((f) => f.type.startsWith('image/')).slice(0, UPLOAD.maxFiles - images.value.length)
+  const all = [...files]
+  const pics = all.filter(isImageFile)
+  const room = Math.max(0, UPLOAD.maxFiles - images.value.length - uploading.value)
+  const list = pics.slice(0, room)
+  if (pics.length < all.length) say('Прикрепить можно только фото: JPG, PNG, WebP или HEIC.')
+  else if (list.length < pics.length) say(`В одном сообщении до ${UPLOAD.maxFiles} фото.`)
   for (const f of list) {
     uploading.value++
     try {
@@ -64,7 +78,7 @@ function onFile(e: Event) {
   input.value = ''
 }
 function onPaste(e: ClipboardEvent) {
-  const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'))
+  const files = [...(e.clipboardData?.files ?? [])].filter(isImageFile)
   if (files.length) {
     e.preventDefault()
     void addFiles(files)
@@ -83,6 +97,7 @@ function toggleGenerate() {
 function submit() {
   if (props.streaming) return emit('stop')
   if (!ready.value) return
+  warn.value = ''
   emit('send', { text: text.value, images: images.value, generate: generate.value })
   text.value = ''
   images.value = []
@@ -99,6 +114,13 @@ function onKey(e: KeyboardEvent) {
 
 defineExpose({
   focus: () => el.value?.focus(),
+  /** Подсказка «с фото»: вставить вопрос и открыть выбор фото. */
+  askWithPhoto(v: string) {
+    text.value = v
+    generate.value = false
+    pickPhoto()
+    nextTick(() => el.value?.focus())
+  },
   /** Вернуть неотправленный текст и фото (запрос отклонён лимитом). */
   setText(v: string, imgs: ImageRef[] = []) {
     text.value = v
@@ -147,7 +169,7 @@ defineExpose({
         <Icon name="spark" :size="16" /> <span>Создать изображение</span>
         <Icon v-if="!canMedia" name="lock" :size="12" class="cmp__lock" />
       </button>
-      <span class="cmp__note">{{ hint }}</span>
+      <span class="cmp__note" :class="{ 'is-warn': warn }" role="status">{{ warn || hint }}</span>
       <button type="submit" class="cmp__send" :class="{ 'is-ready': ready || streaming }" :aria-label="streaming ? 'Остановить' : 'Отправить'">
         <Icon :name="streaming ? 'stop' : 'send'" :size="18" :stroke="2.2" />
       </button>
@@ -301,6 +323,10 @@ defineExpose({
   color: var(--text-3);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.cmp__note.is-warn {
+  color: var(--danger);
+  white-space: normal;
 }
 .cmp__send {
   display: grid;

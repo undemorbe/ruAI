@@ -26,7 +26,7 @@ export const MODELS = {
 export const IMAGE_MODEL_ID = 'openai/gpt-image-2.6-flare'
 
 /** Загрузка фото: форматы и размер (проверяет и сервер). */
-export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif' }
+export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif' }
 
 /**
  * Правила запроса. Сервер — источник истины; здесь копия для подсказок в интерфейсе

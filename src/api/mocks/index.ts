@@ -2,6 +2,7 @@ import { PLAN_TABLE, PRICES, getPlan, getPlans } from '@/content/plans'
 import { CONTINUE_PROMPT, LIMITS, UPLOAD } from '@/config/app'
 import { storage } from '@/lib/storage'
 import { sleep, uid } from '@/lib/id'
+import { isImageFile, prepareUpload } from '@/lib/image'
 import { buildContext, estimateTokens, freshUsage, limitMessage, nextMskMidnight, rateWait } from '@/lib/limits'
 import { LEGAL_VERSION } from '@/content/legal/operator'
 import { checkoutConsentOk as consentOkFor } from '@/config/payments'
@@ -378,9 +379,11 @@ export const mockChat: ChatService = {
     const s = activeSub()
     if (!s) throw refuse('no_subscription')
     if (s.sub.tier !== 'media') throw refuse('media_required')
-    if (!file.type.startsWith('image/') || file.size > UPLOAD.maxBytes) throw refuse('bad_image')
-    const { url, width, height } = await shrink(file)
-    const img: ImageRef = { id: uid('up_'), url, mime: url.startsWith('data:image/jpeg') ? 'image/jpeg' : file.type, width, height, source: 'upload' }
+    // как в настоящем клиенте: HEIC и тяжёлые снимки сначала перекодируются в JPEG
+    const f = await prepareUpload(file)
+    if (!isImageFile(f) || f.size > UPLOAD.maxBytes) throw refuse('bad_image')
+    const { url, width, height } = await shrink(f)
+    const img: ImageRef = { id: uid('up_'), url, mime: url.startsWith('data:image/jpeg') ? 'image/jpeg' : f.type, width, height, source: 'upload' }
     const all = storage.get<Record<string, ImageRef>>(K.images, {})
     all[img.id] = img
     storage.set(K.images, all)

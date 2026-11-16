@@ -11,6 +11,7 @@ import AuthDialog from '@/components/ui/AuthDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LimitCode } from '@/api'
 import { MODELS } from '@/config/app'
+import { pickSuggestions, type Suggestion } from '@/content/suggestions'
 import { saveDraft, takeDraft } from '@/lib/draft'
 import { PAYWALL_CODES } from '@/lib/limits'
 import { type Draft, useChatStore } from '@/stores/chat'
@@ -29,12 +30,17 @@ const scroller = ref<HTMLElement | null>(null)
 const composer = ref<InstanceType<typeof Composer> | null>(null)
 let stick = true
 
-const SUGGESTIONS = [
-  { icon: 'pen', text: 'Напиши вежливое письмо о переносе встречи' },
-  { icon: 'code', text: 'Объясни, что делает этот SQL-запрос' },
-  { icon: 'book', text: 'Составь план подготовки к ЕГЭ по физике' },
-  { icon: 'route', text: 'Маршрут на 3 дня по Казани' },
-]
+// случайная раскладка на каждый заход; «Другие идеи» меняет seed
+const seed = ref(Math.floor(Math.random() * 2 ** 31))
+// подсказки с картинками: тариф с изображениями, гость и без подписки (покажут, что умеет тариф)
+const suggestions = computed(() => pickSuggestions({ media: user.canMedia || !user.isPaid, count: 6, seed: seed.value }))
+
+function useSuggestion(s: Suggestion) {
+  if (s.kind === 'ask') return send(s.text)
+  if (s.kind === 'draw') return send({ text: s.text, images: [], generate: true })
+  if (s.kind === 'photo') return composer.value?.askWithPhoto(s.text)
+  composer.value?.setText(`${s.text}\n`)
+}
 
 function scrollToEnd(force = false) {
   const el = scroller.value
@@ -147,8 +153,11 @@ function select(id: string | null) {
         <UnprotectedBanner variant="compact" class="unprot" />
         <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="user.isGuest ? (authAsk = true) : (paywall = 'media_required')" />
         <div class="empty__hints">
-          <button v-for="s in SUGGESTIONS" :key="s.text" class="empty__hint" @click="send(s.text)">
+          <button v-for="s in suggestions" :key="s.text" class="empty__hint" :class="'is-' + s.kind" @click="useSuggestion(s)">
             <Icon :name="s.icon" :size="16" /> {{ s.text }}
+          </button>
+          <button class="empty__hint empty__more" aria-label="Другие идеи" title="Другие идеи" @click="seed++">
+            <Icon name="shuffle" :size="16" /> <span>Другие идеи</span>
           </button>
         </div>
       </section>
@@ -327,6 +336,14 @@ function select(id: string | null) {
 .empty__hint:hover {
   background: var(--bg-sunken);
   color: var(--text);
+}
+.empty__hint.is-draw,
+.empty__hint.is-photo {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+.empty__more {
+  border-style: dashed;
+  color: var(--text-3);
 }
 
 .feed {

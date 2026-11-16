@@ -151,7 +151,7 @@ test('загрузка: только media, только картинки, ме�
   t.cookie = mine
 })
 
-test('анализ фото: картинка уходит в модель только с текущим сообщением, удаление чата удаляет файлы', async () => {
+test('анализ фото: картинка уходит в модель и остаётся в контексте для уточнений, удаление чата удаляет файлы', async () => {
   const t = setup()
   const userId = await t.register()
   grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
@@ -168,9 +168,18 @@ test('анализ фото: картинка уходит в модель то�
   const chatId = (t.events(r.body)[0] as { chat: { id: string } }).chat.id
   const msgs = (await t.req('GET', `/api/chats/${chatId}/messages`)).json() as { images?: { id: string }[] }[]
   assert.equal(msgs[0]!.images![0]!.id, ref.id)
-  // одно фото — одно сообщение
+  // одно фото - одно сообщение
   t.clock.t += 61_000
   assert.equal((await t.req('POST', '/api/chats/messages', { chatId, content: 'ещё', images: [ref.id] })).json().code, 'bad_image')
+
+  // уточняющий вопрос без фото: модель снова видит фото из прошлого сообщения
+  await t.req('POST', '/api/chats/messages', { chatId, content: 'а что слева?' })
+  const follow = t.llm.calls[1]!.messages
+  assert.equal(follow.at(-1)!.content, 'а что слева?')
+  const withPhoto = follow.filter((m) => Array.isArray(m.content))
+  assert.equal(withPhoto.length, 1)
+  assert.equal(withPhoto[0]!.role, 'user')
+  assert.match(JSON.stringify(withPhoto[0]!.content), /"text":"Фото".*data:image\/jpeg;base64,/)
 
   await t.req('DELETE', `/api/chats/${chatId}`)
   assert.equal(t.files.read(ref.id), null)
@@ -248,6 +257,12 @@ test('«Нарисуй осла» обычным сообщением: моде�
   await t.req('POST', '/api/chats/messages', { chatId, content: 'Сколько живут ослы?' })
   const sub = t.db.get<{ gen_used: number; total_used: number }>('SELECT gen_used, total_used FROM subscriptions')!
   assert.deepEqual({ ...sub }, { gen_used: 1, total_used: 2 })
+  // созданная картинка видна модели в следующем сообщении: правки относятся к ней
+  const next = t.llm.calls[1]!.messages
+  const shown = next.filter((m) => Array.isArray(m.content))
+  assert.equal(shown.length, 1)
+  assert.equal(next[next.indexOf(shown[0]!) - 1]!.role, 'assistant', 'картинка сразу после ответа, который её создал')
+  assert.match(JSON.stringify(shown[0]!.content), /создал.*data:image\/png;base64,/)
   assert.equal(t.db.get<{ kind: string }>('SELECT kind FROM usage_events ORDER BY id DESC')!.kind, 'text')
 })
 

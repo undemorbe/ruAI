@@ -20,8 +20,9 @@ import type { ApiConfig } from './config.ts'
 import { newId, type Db } from './db.ts'
 import { ImageFiles, sanitize } from './images.ts'
 import { Refusal, readSettings, releaseStale, reserve, settle, usageOf, activeSub, type Kind } from './ledger.ts'
-import type { Llm, LlmMessage, LlmUsage, Part } from './openrouter.ts'
+import type { Llm, LlmUsage, Part } from './openrouter.ts'
 import { stripImageUrls, systemPrompt, type ImageAccess } from './prompts.ts'
+import { assembleMessages, pickContextImages } from './context.ts'
 import type { TgApi } from './tg/api.ts'
 import { TgBot } from './tg/bot.ts'
 import type { TgNotifier } from './tg/notify.ts'
@@ -505,13 +506,13 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           // ---- принято: дальше только поток ----
           const t0 = now()
           let chatId = p.chatId
+          const mid = newId('m')
           db.tx(() => {
             if (!chatId) {
               chatId = newId('c')
               const title = (content.slice(0, 48) || (kind === 'image' ? 'Изображение' : 'Фото')).replace(/[\u0000-\u001f\u007f]/g, ' ')
               db.run('INSERT INTO chats (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)', chatId, u.id, title, t0, t0)
             } else db.run('UPDATE chats SET updated_at = ? WHERE id = ?', t0, chatId)
-            const mid = newId('m')
             db.run("INSERT INTO messages (id, chat_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)", mid, chatId, content, t0)
             for (const ph of photos) db.run('UPDATE images SET message_id = ?, chat_id = ? WHERE id = ?', mid, chatId, ph!.id)
           })
@@ -546,25 +547,43 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
 
           try {
             send({ type: 'chat', chat: summary(chat, tier) })
-            const photoParts: Part[] = photos.map((ph) => ({
-              type: 'image_url',
-              image_url: {
-                url: `data:${ph!.mime};base64,${files.read(ph!.id)?.toString('base64') ?? ''}`,
-              },
-            }))
-
             const history = db
-              .all<MessageRow>('SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?', chatId, LIMITS.contextMessages)
+              .all<MessageRow & { pics: number }>(
+                'SELECT m.*, (SELECT COUNT(*) FROM images i WHERE i.message_id = m.id) AS pics FROM messages m WHERE m.chat_id = ? ORDER BY m.created_at DESC, m.rowid DESC LIMIT ?',
+                chatId,
+                LIMITS.contextMessages,
+              )
               .reverse()
-              .filter((m) => m.content)
+              // сообщение только с фото (без текста) остаётся в контексте тарифа с изображениями
+              .filter((m) => m.content || (media && m.pics > 0))
             const ctx = buildContext(history)
-            const messages: LlmMessage[] = []
+            // текстовая модель картинок не видит: части-картинки только в тарифе с изображениями
+            const ctxImages = media
+              ? db.all<{ id: string; message_id: string; created_at: number }>(
+                  `SELECT id, message_id, created_at FROM images WHERE chat_id = ? AND message_id IN (${ctx.map(() => '?').join(',') || "''"})`,
+                  chatId,
+                  ...ctx.map((m) => m.id),
+                )
+              : []
+            const picked = pickContextImages(
+              ctxImages.map((r) => ({ id: r.id, messageId: r.message_id, createdAt: r.created_at })),
+              ctx.map((m) => m.id),
+              mid,
+            )
+            const mimeOf = new Map<string, string>(photos.map((ph) => [ph!.id, ph!.mime]))
+            for (const r of db.all<{ id: string; mime: string }>(`SELECT id, mime FROM images WHERE id IN (${[...picked.values()].flat().map(() => '?').join(',') || "''"})`, ...[...picked.values()].flat()))
+              mimeOf.set(r.id, r.mime)
+            const parts = new Map<string, Part[]>()
+            for (const [msgId, ids] of picked) {
+              const list: Part[] = []
+              for (const id of ids) {
+                const data = files.read(id)
+                if (data) list.push({ type: 'image_url', image_url: { url: `data:${mimeOf.get(id)};base64,${data.toString('base64')}` } })
+              }
+              if (list.length) parts.set(msgId, list)
+            }
             const fallback = content || (kind === 'image' ? 'Улучши это изображение' : 'Что на фото?')
-            ctx.forEach((m, i) => {
-              const last = i === ctx.length - 1
-              messages.push(last && photoParts.length ? { role: 'user', content: [{ type: 'text', text: m.content || fallback }, ...photoParts] } : { role: m.role, content: m.content })
-            })
-            if (!ctx.length || ctx[ctx.length - 1]!.role !== 'user') messages.push({ role: 'user', content: [{ type: 'text', text: fallback }, ...photoParts] })
+            const messages = assembleMessages(ctx, parts, fallback)
 
             const saveImage = (b: Buffer) => {
               const img = sanitize(b)
