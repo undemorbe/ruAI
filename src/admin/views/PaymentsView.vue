@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { adminApi } from '../api'
-import { date, num, PLAN_LABEL, rub, TIER_SHORT } from '../format'
-import { useReport } from '../state'
+import { date, dateTime, num, PLAN_LABEL, rub, TIER_SHORT } from '../format'
+import { userCard, useReport } from '../state'
 import Panel from '../ui/Panel.vue'
 import Stat from '../ui/Stat.vue'
 
-const { data: p, error } = useReport((d) => adminApi.payments(d))
+const { data: p, error } = useReport((r) => adminApi.payments(r))
 const total = computed(() => p.value?.byPlan.reduce((n, x) => ({ count: n.count + x.count, rev: n.rev + x.revenueRub }), { count: 0, rev: 0 }))
 const daysLeft = (iso: string) => Math.max(0, Math.ceil((Date.parse(iso) - Date.now()) / 86_400_000))
 </script>
@@ -45,6 +45,31 @@ const daysLeft = (iso: string) => Math.max(0, Math.ceil((Date.parse(iso) - Date.
       </div>
     </Panel>
 
+    <Panel title="Последние платежи" note="до 50 за период">
+      <p v-if="!p.recent.length" class="muted">Платежей за период нет.</p>
+      <div v-else class="scroll-x">
+        <table class="tbl">
+          <thead>
+            <tr><th>Время</th><th>Пользователь</th><th>Тариф</th><th class="r">Сумма</th><th>Статус</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="x in p.recent" :key="x.id">
+              <td>{{ dateTime(x.at) }}</td>
+              <td><button class="link" @click="userCard = x.userId">{{ x.login }}</button></td>
+              <td><span class="tag" :class="{ 'tag--media': x.tier === 'media' }">{{ TIER_SHORT[x.tier] }}</span> {{ PLAN_LABEL[x.planId] }}</td>
+              <td class="r">{{ rub(x.amount) }}</td>
+              <td>
+                <span v-if="x.status === 'failed'" class="bad">не прошёл</span>
+                <span v-else-if="x.refunded" class="muted">возврат</span>
+                <span v-else-if="!x.amount" class="muted">выдано вручную</span>
+                <span v-else class="good">{{ x.repeat ? 'продление' : 'первая оплата' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Panel>
+
     <Panel title="Скоро заканчиваются" note="ближайшие 14 дней">
       <p v-if="!p.expiring.length" class="muted">Нет подписок, которые заканчиваются в ближайшие две недели.</p>
       <div v-else class="scroll-x">
@@ -54,7 +79,7 @@ const daysLeft = (iso: string) => Math.max(0, Math.ceil((Date.parse(iso) - Date.
           </thead>
           <tbody>
             <tr v-for="x in p.expiring" :key="x.userId">
-              <td>{{ x.email }}</td>
+              <td><button class="link" @click="userCard = x.userId">{{ x.login }}</button></td>
               <td><span class="tag" :class="{ 'tag--media': x.tier === 'media' }">{{ TIER_SHORT[x.tier] }}</span> {{ PLAN_LABEL[x.planId] }}</td>
               <td>{{ date(x.expiresAt) }}</td>
               <td class="r">{{ daysLeft(x.expiresAt) }} дн</td>

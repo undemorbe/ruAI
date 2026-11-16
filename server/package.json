@@ -3,20 +3,23 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "API админки ruAI: вход по паролю и TOTP, сессии, журнал, отчёты. Только за nginx на 127.0.0.1.",
+  "description": "API сайта (ruai-api) и админки (ruai-admin): вход, чаты, учёт, отчёты. Только за nginx на 127.0.0.1.",
   "scripts": {
-    "start": "node src/main.ts",
-    "dev": "ADMIN_DEMO=1 node --watch src/main.ts",
+    "start": "node --disable-warning=ExperimentalWarning --import ./src/register.ts src/main.ts",
+    "dev": "ADMIN_DEMO=1 node --disable-warning=ExperimentalWarning --import ./src/register.ts --watch src/main.ts",
     "setup": "node scripts/admin-setup.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test 'src/**/*.test.ts'"
+    "test": "node --disable-warning=ExperimentalWarning --import ./src/register.ts --test 'src/**/*.test.ts'",
+    "start:api": "node --disable-warning=ExperimentalWarning --import ./src/register.ts src/api/main.ts",
+    "dev:api": "API_ORIGIN=http://localhost:5194 API_PEPPER=dev-pepper-dev-pepper-dev-pepper-00 OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-sk-or-dev-000000000000000000} LLM_STUB=${LLM_STUB:-1} API_DATA_DIR=.data API_AUTH_LOG=.data/auth.log node --disable-warning=ExperimentalWarning --import ./src/register.ts --watch src/api/main.ts"
   },
   "dependencies": {
+    "@fastify/multipart": "10.1.6",
     "fastify": "5.12.7"
   },
   "devDependencies": {
-    "@types/node": "^24.19.2",
-    "typescript": "~6.0.3"
+    "@types/node": "24.19.2",
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=24"

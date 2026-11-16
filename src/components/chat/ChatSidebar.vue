@@ -3,9 +3,11 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { ChatSummary } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
 import Logo from '@/components/ui/Logo.vue'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps<{ chats: ChatSummary[]; activeId: string | null; open: boolean; userLabel: string; isPaid: boolean }>()
 const emit = defineEmits<{ select: [id: string | null]; remove: [id: string]; close: [] }>()
+const user = useUserStore()
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape' && props.open) emit('close')
@@ -47,14 +49,16 @@ const groups = computed(() => {
 
     <RouterLink v-if="!isPaid" to="/pricing" class="side__upsell">
       <Icon name="bolt" :size="18" />
-      <span><b>Оформить подписку</b><small>От 388 ₽ за 7 дней. С фото и картинками — от 788 ₽</small></span>
+      <span><b>Оформить подписку</b><small>От 388 ₽ за 7 дней. С фото и картинками от 788 ₽</small></span>
     </RouterLink>
 
     <div class="side__user">
       <span class="side__avatar">{{ userLabel.slice(0, 2).toUpperCase() }}</span>
       <span class="side__who">
-        <span class="side__email">{{ userLabel }}</span>
-        <RouterLink to="/pricing" class="side__upgrade">{{ isPaid ? 'Подписка' : 'Тарифы' }}</RouterLink>
+        <RouterLink v-if="!user.isGuest" :to="{ name: 'account' }" class="side__email">{{ userLabel }}</RouterLink>
+        <span v-else class="side__email">{{ userLabel }}</span>
+        <RouterLink v-if="user.isGuest" :to="{ name: 'login', query: { next: '/chat' } }" class="side__upgrade">Войти или зарегистрироваться</RouterLink>
+        <RouterLink v-else to="/pricing" class="side__upgrade">{{ isPaid ? 'Подписка' : 'Тарифы' }}</RouterLink>
       </span>
     </div>
   </aside>

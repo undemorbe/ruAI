@@ -34,6 +34,8 @@ function make(over: Partial<Config> = {}) {
     insecureCookie: false,
     idleMs: 30 * 60_000,
     absoluteMs: 12 * 3_600_000,
+    dbFile: null,
+    imagesDir: '',
     ...over,
   }
   return buildApp(cfg, { store: new FileStore(cfg.dataDir), now: () => clock, log: (e, ip) => events.push(`${e} ${ip}`) })

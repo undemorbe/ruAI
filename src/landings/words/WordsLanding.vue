@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import BrandMark from '@/components/ui/BrandMark.vue'
 import { useRouter } from 'vue-router'
 import { askExamples, reviews } from '@/content/landing'
-import { getPlans } from '@/content/plans'
+import { MAIN_NAV, landingSeo } from '@/content/landing-seo'
 import { useGoogleFont } from '@/lib/fonts'
 import { vReveal } from '@/lib/reveal'
 import QuietFooter from '../shared/QuietFooter.vue'
@@ -20,7 +21,6 @@ useGoogleFont('family=Dela+Gothic+One&family=Commissioner:wght@400;500;600')
 const DISPLAY = '"Dela Gothic One", "Arial Black", sans-serif'
 
 const router = useRouter()
-const week = getPlans()[0]!
 
 const WORDS = [
   { w: 'ChatGPT', cap: 'Нейросеть, которая отвечает по-русски' },
@@ -140,11 +140,10 @@ onBeforeUnmount(() => {
 <template>
   <div class="v6">
     <header class="nav">
-      <RouterLink to="/" class="nav__mark">ChatGPT</RouterLink>
+      <RouterLink to="/" class="nav__mark"><span class="nav__knot"><BrandMark /></span>ChatGPT</RouterLink>
       <nav class="nav__links" aria-label="Разделы">
         <a href="#words">Что умеет</a>
-        <a href="#price">Цены</a>
-        <a href="#faq">Вопросы</a>
+        <RouterLink v-for="n in MAIN_NAV" :key="n.to" :to="n.to">{{ n.label }}</RouterLink>
       </nav>
       <RouterLink to="/chat" class="nav__cta">Открыть чат</RouterLink>
     </header>
@@ -156,8 +155,8 @@ onBeforeUnmount(() => {
 
       <div class="hero__foot">
         <div class="hero__copy">
-          <h1 id="h1" class="hero__h">Нейросеть, которая пишет по-русски</h1>
-          <p class="hero__sub">Работает в России без VPN. 7 дней — {{ week.price }} ₽ за {{ week.requestsTotal }} запросов, оплата картой МИР или через СБП.</p>
+          <h1 id="h1" class="hero__h">{{ landingSeo.h1 }}</h1>
+          <p class="hero__sub">{{ landingSeo.sub }}</p>
           <RouterLink to="/chat" class="btn-hot">Открыть чат</RouterLink>
         </div>
         <form class="own" @submit.prevent="submitOwn">
@@ -172,7 +171,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section id="words" class="words" aria-labelledby="words-h">
-      <h2 id="words-h" class="h2" v-reveal>Четыре слова — четыре дела</h2>
+      <h2 id="words-h" class="h2" v-reveal>{{ landingSeo.hWhat }}</h2>
       <article v-for="(r, i) in ROWS" :key="r.w" class="row" v-reveal="i * 60">
         <h3 class="row__w">{{ r.w }}</h3>
         <div class="row__body">
@@ -193,8 +192,8 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div id="price" class="wrap"><StepPlans title="Сколько стоит" /></div>
-    <div id="faq" class="wrap"><TileFaq /></div>
+    <div id="price" class="wrap"><StepPlans :title="landingSeo.hPrice" /></div>
+    <div id="faq" class="wrap"><TileFaq :title="landingSeo.hFaq" /></div>
     <div class="wrap"><SentenceCta /></div>
     <div class="wrap"><QuietFooter /></div>
   </div>
@@ -266,7 +265,14 @@ onBeforeUnmount(() => {
   padding: calc(18px + env(safe-area-inset-top, 0px)) var(--margin) 18px;
 }
 .nav__mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font: 400 24px/1 var(--f-display);
+}
+.nav__knot {
+  width: 30px;
+  height: 30px;
 }
 .nav__links {
   display: flex;

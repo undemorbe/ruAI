@@ -2,11 +2,11 @@
 import { computed } from 'vue'
 import { adminApi } from '../api'
 import { compact, ERROR_LABEL, num, pct, rub, usd } from '../format'
-import { useReport } from '../state'
+import { userCard, useReport } from '../state'
 import Panel from '../ui/Panel.vue'
 import Stat from '../ui/Stat.vue'
 
-const { data: a, error } = useReport((d) => adminApi.api(d))
+const { data: a, error } = useReport((r) => adminApi.api(r))
 const topMax = computed(() => Math.max(0.0001, ...(a.value?.topUsers.map((u) => u.usd) ?? [])))
 </script>
 
@@ -32,7 +32,7 @@ const topMax = computed(() => Math.max(0.0001, ...(a.value?.topUsers.map((u) => 
                 <td>{{ m.label }}</td>
                 <td class="r">{{ num(m.requests) }}</td>
                 <td class="r">{{ usd(m.usd) }}</td>
-                <td class="r muted">{{ m.requests ? usd(m.usd / m.requests, 4) : '—' }}</td>
+                <td class="r muted">{{ m.requests ? usd(m.usd / m.requests, 4) : '-' }}</td>
               </tr>
             </tbody>
           </table>
@@ -58,7 +58,7 @@ const topMax = computed(() => Math.max(0.0001, ...(a.value?.topUsers.map((u) => 
           <tbody>
             <tr v-for="(u, i) in a.topUsers" :key="u.userId">
               <td class="muted">{{ i + 1 }}</td>
-              <td>{{ u.email }} <span class="mono muted">{{ u.userId }}</span></td>
+              <td><button class="link" @click="userCard = u.userId">{{ u.login }}</button> <span class="mono muted">{{ u.userId }}</span></td>
               <td class="r">{{ num(u.requests) }}</td>
               <td class="r">{{ usd(u.usd, 3) }}</td>
               <td class="w-bar"><div class="bar"><i :style="{ width: `${(u.usd / topMax) * 100}%` }"></i></div></td>

@@ -75,6 +75,14 @@ body {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: color-mix(in srgb, var(--accent) 70%, var(--text));
 }
+.tag--bad {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
 .bad {
   color: var(--danger);
 }
@@ -123,10 +131,20 @@ body {
     font-size: 16px; /* iOS не зумит поле при фокусе */
   }
 }
-/* без inline-стилей: CSP админки — style-src 'self' */
+/* без inline-стилей: CSP админки - style-src 'self' */
 .w-input {
   width: 140px;
 }
 .w-bar {
   width: 30%;
+}
+.link {
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-color: currentColor;
 }

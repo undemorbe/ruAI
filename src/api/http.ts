@@ -31,6 +31,8 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 function buildInit(opts: RequestOptions): RequestInit {
   const headers = new Headers(opts.headers)
   headers.set('Accept', 'application/json')
+  // CSRF: сервер принимает запросы только с этим заголовком (кросс-доменная форма его не поставит)
+  headers.set('X-Requested-With', 'ruai')
   if (opts.body !== undefined && !(opts.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
@@ -40,7 +42,7 @@ function buildInit(opts: RequestOptions): RequestInit {
   return {
     ...opts,
     headers,
-    credentials: 'include',
+    credentials: 'same-origin',
     body:
       opts.body === undefined
         ? undefined
@@ -77,16 +79,23 @@ async function raw(path: string, opts: RequestOptions = {}): Promise<Response> {
   }
 }
 
+/** Пустой ответ (204) — undefined вместо ошибки разбора JSON. */
+async function json<T>(res: Response): Promise<T> {
+  if (res.status === 204) return undefined as T
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
+}
+
 export const http = {
   raw,
   async get<T>(path: string, opts?: RequestOptions): Promise<T> {
-    return (await raw(path, { ...opts, method: 'GET' })).json()
+    return json<T>(await raw(path, { ...opts, method: 'GET' }))
   },
   async post<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
-    return (await raw(path, { ...opts, method: 'POST', body })).json()
+    return json<T>(await raw(path, { ...opts, method: 'POST', body }))
   },
   async patch<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T> {
-    return (await raw(path, { ...opts, method: 'PATCH', body })).json()
+    return json<T>(await raw(path, { ...opts, method: 'PATCH', body }))
   },
   async del(path: string, opts?: RequestOptions): Promise<void> {
     await raw(path, { ...opts, method: 'DELETE' })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { MODEL_NAME, MODELS } from '@/config/app'
 import { getPlans, pricePerRequest } from '../plans'
 
 describe('plans', () => {
@@ -18,12 +19,20 @@ describe('plans', () => {
       ['quarter', 3880, 4500, 200],
     ])
     for (const p of media) {
-      expect(p.model).toBe('GPT-5.6 Luna')
+      expect(p.model).toBe('ChatGPT-6.1 Astra')
+      expect(p.features[0]!.text).toBe('Модель ChatGPT-6.1 Astra')
       expect(p.features.some((f) => /генерац/i.test(f.text))).toBe(true)
     }
   })
 
-  it('text tier never promises images and never names the model', () => {
+  it('both tiers carry the public model name, the OpenRouter id stays internal', () => {
+    expect(MODEL_NAME).toBe('ChatGPT-6.1 Astra')
+    expect(MODELS.text.name).toBe(MODEL_NAME)
+    expect(MODELS.media.name).toBe(MODEL_NAME)
+    for (const p of getPlans()) expect(p.model).toBe(MODEL_NAME)
+  })
+
+  it('text tier never promises images and never names the model in features (main page shows them)', () => {
     for (const p of getPlans('text')) {
       for (const f of p.features) expect(f.text).not.toMatch(/изображен|фото|gpt|oss/i)
     }

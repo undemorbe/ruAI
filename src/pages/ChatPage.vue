@@ -3,12 +3,15 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import Composer from '@/components/chat/Composer.vue'
+import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
 import MessageItem from '@/components/chat/MessageItem.vue'
 import PaywallDialog from '@/components/chat/PaywallDialog.vue'
 import UsageMeter from '@/components/chat/UsageMeter.vue'
+import AuthDialog from '@/components/ui/AuthDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
 import type { LimitCode } from '@/api'
 import { MODELS } from '@/config/app'
+import { saveDraft, takeDraft } from '@/lib/draft'
 import { PAYWALL_CODES } from '@/lib/limits'
 import { type Draft, useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
@@ -20,6 +23,8 @@ const user = useUserStore()
 
 const sideOpen = ref(false)
 const paywall = ref<LimitCode | null>(null)
+/** Гость нажал «Отправить»: предложение зарегистрироваться. */
+const authAsk = ref(false)
 const scroller = ref<HTMLElement | null>(null)
 const composer = ref<InstanceType<typeof Composer> | null>(null)
 let stick = true
@@ -63,12 +68,25 @@ onMounted(async () => {
   if (typeof q === 'string' && q.trim() && !paramId()) {
     router.replace({ name: 'chat' })
     await send(q)
+    return
   }
+  // текст, набранный до регистрации, возвращается в поле ввода (не отправляется сам)
+  const saved = takeDraft()
+  if (saved) nextTick(() => composer.value?.setText(saved))
 })
 
 const model = computed(() => MODELS[user.tier ?? 'text'])
 
 async function send(draft: string | Draft) {
+  await user.ensure()
+  if (user.isGuest) {
+    // гость не отправляет: текст остаётся в поле и переживает регистрацию
+    const text = typeof draft === 'string' ? draft : draft.text
+    saveDraft(text)
+    nextTick(() => composer.value?.setText(text))
+    authAsk.value = true
+    return
+  }
   stick = true
   const id = await chat.send(draft)
   if (id && id !== paramId()) router.replace({ name: 'chat', params: { id } })
@@ -85,7 +103,11 @@ watch(
   (r) => {
     if (!r) return
     if (r.draft || r.images.length) nextTick(() => composer.value?.setText(r.draft, r.images))
-    if (PAYWALL_CODES.includes(r.code) || r.code === 'daily_limit') paywall.value = r.code
+    if (r.code === 'auth_required') {
+      // сессия истекла или гость: сервер не принял запрос
+      saveDraft(r.draft)
+      authAsk.value = true
+    } else if (PAYWALL_CODES.includes(r.code) || r.code === 'daily_limit') paywall.value = r.code
   },
 )
 
@@ -121,8 +143,9 @@ function select(id: string | null) {
 
       <section v-if="!chat.messages.length" class="empty">
         <h1 class="empty__title">Что у тебя сегодня на уме?</h1>
-        <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
-        <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="paywall = 'media_required'" />
+        <p v-if="chat.refusal && !paywall && !authAsk" class="notice" role="status">{{ chat.refusal.message }}</p>
+        <UnprotectedBanner variant="compact" class="unprot" />
+        <Composer ref="composer" class="empty__composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="user.isGuest ? (authAsk = true) : (paywall = 'media_required')" />
         <div class="empty__hints">
           <button v-for="s in SUGGESTIONS" :key="s.text" class="empty__hint" @click="send(s.text)">
             <Icon :name="s.icon" :size="16" /> {{ s.text }}
@@ -142,15 +165,20 @@ function select(id: string | null) {
           </div>
         </div>
         <div class="dock">
-          <p v-if="chat.refusal && !paywall" class="notice" role="status">{{ chat.refusal.message }}</p>
-          <Composer ref="composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="paywall = 'media_required'" />
+          <p v-if="chat.refusal && !paywall && !authAsk" class="notice" role="status">{{ chat.refusal.message }}</p>
+          <UnprotectedBanner variant="compact" class="unprot" />
+          <Composer ref="composer" :streaming="chat.streaming" :can-media="user.canMedia" :upload="chat.upload" @send="send" @stop="chat.stop" @locked="user.isGuest ? (authAsk = true) : (paywall = 'media_required')" />
         </div>
       </template>
 
-      <p class="disclaimer">Нейросеть может ошибаться — проверяйте важное. Независимый сервис, не связан с OpenAI.</p>
+      <p class="disclaimer">
+        Нейросеть может ошибаться — проверяйте важное. Независимый сервис, не связан с OpenAI.
+        <RouterLink :to="{ name: 'legal' }">Документы</RouterLink>
+      </p>
     </main>
 
     <PaywallDialog v-if="paywall" :code="paywall" @close="paywall = null" />
+    <AuthDialog v-if="authAsk" reason="chat" :next="route.path" @close="authAsk = false" />
   </div>
 </template>
 
@@ -206,6 +234,13 @@ function select(id: string | null) {
   color: var(--text);
 }
 .empty .notice {
+  width: 100%;
+  margin: 0;
+}
+.unprot {
+  margin: 0 0 8px;
+}
+.empty .unprot {
   width: 100%;
   margin: 0;
 }
@@ -323,6 +358,10 @@ function select(id: string | null) {
   text-align: center;
   font-size: 12px;
   color: var(--text-3);
+}
+.disclaimer a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 860px) {

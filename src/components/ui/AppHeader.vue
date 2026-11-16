@@ -1,8 +1,16 @@
 <script setup lang="ts">
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import Logo from './Logo.vue'
 
 const user = useUserStore()
+const route = useRoute()
+const router = useRouter()
+
+async function logout() {
+  await user.logout()
+  router.push('/')
+}
 </script>
 
 <template>
@@ -11,9 +19,14 @@ const user = useUserStore()
     <nav class="hdr__nav">
       <RouterLink to="/chat" class="hdr__link">Чат</RouterLink>
       <RouterLink to="/pricing" class="hdr__link">Тарифы</RouterLink>
-      <span class="hdr__user" :title="user.displayName">
-        <span class="hdr__avatar">{{ user.displayName.slice(0, 2).toUpperCase() }}</span>
-        <span class="hdr__email">{{ user.displayName }}</span>
+      <RouterLink v-if="user.isGuest" :to="{ name: 'login', query: { next: route.fullPath } }" class="hdr__login">Войти</RouterLink>
+      <span v-else class="hdr__user">
+        <RouterLink :to="{ name: 'account' }" class="hdr__acc" :title="user.showUnprotected ? 'Аккаунт не защищён: подключите Telegram' : 'Аккаунт'">
+          <span class="hdr__avatar">{{ user.displayName.slice(0, 2).toUpperCase() }}</span>
+          <span v-if="user.showUnprotected" class="hdr__dot" aria-label="Аккаунт не защищён" />
+          <span class="hdr__email">{{ user.displayName }}</span>
+        </RouterLink>
+        <button type="button" class="hdr__out" @click="logout">Выйти</button>
       </span>
     </nav>
   </header>
@@ -65,6 +78,48 @@ const user = useUserStore()
   max-width: 220px;
   font-size: 13px;
   color: var(--text-2);
+}
+.hdr__login {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--ink-text);
+  font-weight: 600;
+  font-size: 14px;
+}
+.hdr__out {
+  min-height: 36px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.hdr__out:hover {
+  color: var(--text);
+}
+.hdr__acc {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 44px;
+}
+.hdr__dot {
+  position: absolute;
+  top: 6px;
+  left: 22px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-elev);
+  border-radius: 50%;
+  background: var(--accent);
 }
 .hdr__avatar {
   flex: none;

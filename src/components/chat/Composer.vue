@@ -2,7 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import type { ImageRef } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
-import { UPLOAD } from '@/config/app'
+import { MODEL_NAME, UPLOAD } from '@/config/app'
 import type { Draft } from '@/stores/chat'
 
 /**
@@ -131,7 +131,7 @@ defineExpose({
       v-model="text"
       rows="1"
       class="cmp__input"
-      :placeholder="generate ? 'Опишите изображение' : (placeholder ?? 'Спросите ChatGPT')"
+      :placeholder="generate ? 'Опишите изображение' : (placeholder ?? `Спросите ${MODEL_NAME}`)"
       enterkeyhint="send"
       autocomplete="off"
       @keydown="onKey"

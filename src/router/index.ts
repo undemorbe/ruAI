@@ -8,15 +8,25 @@ export const router = createRouter({
     return { top: 0 }
   },
   routes: [
-    { path: '/', name: 'landing', component: () => import('@/pages/LandingPage.vue'), meta: { title: 'ChatGPT — нейросеть без VPN' } },
-    { path: '/chat/:id?', name: 'chat', component: () => import('@/pages/ChatPage.vue'), meta: { title: 'Чат — ChatGPT' } },
-    { path: '/pricing', name: 'pricing', component: () => import('@/pages/PricingPage.vue'), meta: { title: 'Тарифы — ChatGPT' } },
-    { path: '/checkout/:plan', name: 'checkout', component: () => import('@/pages/CheckoutPage.vue'), meta: { title: 'Оплата — ChatGPT' } },
-    { path: '/payment/result', name: 'payment-result', component: () => import('@/pages/PaymentResultPage.vue'), meta: { title: 'Статус оплаты — ChatGPT' } },
-    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue'), meta: { title: 'Страница не найдена — ChatGPT' } },
+    { path: '/', name: 'landing', component: () => import('@/pages/LandingPage.vue') },
+    { path: '/chat/:id?', name: 'chat', component: () => import('@/pages/ChatPage.vue') },
+    { path: '/pricing', name: 'pricing', component: () => import('@/pages/PricingPage.vue') },
+    { path: '/payment', name: 'payment', component: () => import('@/pages/PaymentInfoPage.vue') },
+    { path: '/faq', name: 'faq', component: () => import('@/pages/FaqPage.vue') },
+    { path: '/checkout/:plan', name: 'checkout', component: () => import('@/pages/CheckoutPage.vue') },
+    { path: '/login', name: 'login', component: () => import('@/pages/AuthPage.vue'), meta: { mode: 'login' } },
+    { path: '/register', name: 'register', component: () => import('@/pages/AuthPage.vue'), meta: { mode: 'register' } },
+    { path: '/legal/:doc?', name: 'legal', component: () => import('@/pages/LegalPage.vue') },
+    { path: '/account', name: 'account', component: () => import('@/pages/AccountPage.vue') },
+    { path: '/reset', name: 'reset', component: () => import('@/pages/ResetPage.vue') },
+    { path: '/payment/result', name: 'payment-result', component: () => import('@/pages/PaymentResultPage.vue') },
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/pages/NotFoundPage.vue') },
   ],
 })
 
-router.afterEach((to) => {
-  if (typeof to.meta.title === 'string') document.title = to.meta.title
+// title, description, canonical, robots, OG и JSON-LD - из реестра src/seo/pages.ts
+// модуль грузится отдельным чанком: тексты страниц не попадают в основной бандл
+router.afterEach(async (to) => {
+  const [{ applyHead }, { seoForPath }] = await Promise.all([import('@/seo/head'), import('@/seo/pages')])
+  if (router.currentRoute.value.path === to.path) applyHead(document, seoForPath(to.path))
 })

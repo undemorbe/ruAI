@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { adminApi, type UserSort, type UsersQuery } from '../api'
+import { adminApi, type UserFilter, type UserSort, type UsersQuery } from '../api'
 import { date, num, PLAN_LABEL, rub, TIER_SHORT, usd } from '../format'
-import { useReport } from '../state'
+import { userCard, useReport } from '../state'
 
-const query = reactive<UsersQuery>({ q: '', sort: 'active', page: 1 })
+const query = reactive<UsersQuery>({ q: '', sort: 'active', filter: 'all', page: 1 })
 const qRef = ref<UsersQuery>({ ...query })
 let t: ReturnType<typeof setTimeout> | undefined
-// поиск — с задержкой, сортировка и страница — сразу
+// поиск - с задержкой, сортировка, фильтр и страница - сразу
 watch(
   () => query.q,
   () => {
@@ -19,6 +19,13 @@ watch(
   () => [query.sort, query.page],
   () => (qRef.value = { ...query }),
 )
+watch(
+  () => query.filter,
+  () => {
+    query.page = 1
+    qRef.value = { ...query }
+  },
+)
 
 const { data: p, error, loading } = useReport((q: UsersQuery) => adminApi.users(q), qRef)
 const pages = computed(() => (p.value ? Math.max(1, Math.ceil(p.value.total / p.value.pageSize)) : 1))
@@ -29,8 +36,17 @@ const SORTS: { v: UserSort; label: string }[] = [
   { v: 'spend', label: 'Расход API' },
   { v: 'paid', label: 'Оплачено' },
 ]
+const FILTERS: { v: UserFilter; label: string }[] = [
+  { v: 'all', label: 'Все' },
+  { v: 'active', label: 'С подпиской' },
+  { v: 'expiring', label: 'Заканчивается за 7 дн.' },
+  { v: 'none', label: 'Без подписки' },
+  { v: 'blocked', label: 'Заблокированные' },
+  { v: 'no_tg', label: 'Без Telegram' },
+]
+
 const ago = (iso: string | null) => {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000)
   return d <= 0 ? 'сегодня' : d === 1 ? 'вчера' : `${d} дн назад`
 }
@@ -39,7 +55,10 @@ const ago = (iso: string | null) => {
 <template>
   <div class="stack">
     <div class="uf">
-      <input v-model="query.q" class="field-sm uf__q" type="search" placeholder="Email или ID" aria-label="Поиск пользователя" autocomplete="off" spellcheck="false" />
+      <input v-model="query.q" class="field-sm uf__q" type="search" placeholder="Логин, email или ID" aria-label="Поиск пользователя" autocomplete="off" spellcheck="false" />
+      <div class="uf__chips" role="radiogroup" aria-label="Фильтр">
+        <button v-for="f in FILTERS" :key="f.v" role="radio" :aria-checked="query.filter === f.v" @click="query.filter = f.v">{{ f.label }}</button>
+      </div>
       <label class="uf__sort">
         <span class="muted">Сортировка</span>
         <select v-model="query.sort" class="field-sm">
@@ -55,30 +74,34 @@ const ago = (iso: string | null) => {
         <table class="tbl">
           <thead>
             <tr>
-              <th>ID</th><th>Email</th><th>Регистрация</th><th>Тариф</th><th>До</th>
+              <th>Логин</th><th>Telegram</th><th>Регистрация</th><th>Тариф</th><th>До</th>
               <th class="r">Использовано</th><th class="r">Осталось</th><th class="r">Генераций</th>
-              <th class="r">Оплачено</th><th class="r">Расход API</th><th class="r">Остаток бюджета</th><th>Активность</th>
+              <th class="r">Оплачено</th><th class="r">Расход API</th><th class="r">Остаток бюджета</th><th>Активность</th><th></th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="u in p.items" :key="u.id">
-              <td class="mono muted">{{ u.id }}</td>
-              <td>{{ u.email }}</td>
+            <tr v-for="u in p.items" :key="u.id" :class="{ 'is-blocked': u.blocked }">
+              <td>
+                <button class="link" @click="userCard = u.id">{{ u.login }}</button>
+                <span v-if="u.blocked" class="tag tag--bad">заблокирован</span>
+              </td>
+              <td :class="{ muted: !u.telegram }">{{ u.telegram ? 'да' : 'нет' }}</td>
               <td>{{ date(u.registeredAt) }}</td>
               <td>
                 <template v-if="u.tier && u.planId"><span class="tag" :class="{ 'tag--media': u.tier === 'media' }">{{ TIER_SHORT[u.tier] }}</span> {{ PLAN_LABEL[u.planId] }}</template>
                 <span v-else class="muted">нет</span>
               </td>
               <td>{{ date(u.expiresAt) }}</td>
-              <td class="r">{{ u.tier ? num(u.requestsUsed) : '—' }}</td>
-              <td class="r">{{ u.tier ? num(u.requestsLeft) : '—' }}</td>
-              <td class="r">{{ u.tier === 'media' ? num(u.generations) : '—' }}</td>
+              <td class="r">{{ u.tier ? num(u.requestsUsed) : '-' }}</td>
+              <td class="r">{{ u.tier ? num(u.requestsLeft) : '-' }}</td>
+              <td class="r">{{ u.tier === 'media' ? num(u.generations) : '-' }}</td>
               <td class="r">{{ rub(u.paidTotalRub) }}</td>
               <td class="r">{{ usd(u.spendUsd, 3) }}</td>
-              <td class="r" :class="{ bad: u.budgetLeftRub !== null && u.budgetLeftRub < 30 }">{{ u.budgetLeftRub === null ? '—' : rub(u.budgetLeftRub) }}</td>
+              <td class="r" :class="{ bad: u.budgetLeftRub !== null && u.budgetLeftRub < 30 }">{{ u.budgetLeftRub === null ? '-' : rub(u.budgetLeftRub) }}</td>
               <td>{{ ago(u.lastActiveAt) }}</td>
+              <td><button class="btn btn--ghost ua__btn" @click="userCard = u.id">Открыть</button></td>
             </tr>
-            <tr v-if="!p.items.length"><td colspan="12" class="muted">Никого не нашли.</td></tr>
+            <tr v-if="!p.items.length"><td colspan="13" class="muted">Никого не нашли.</td></tr>
           </tbody>
         </table>
       </div>
@@ -92,6 +115,14 @@ const ago = (iso: string | null) => {
 </template>
 
 <style scoped>
+.is-blocked td {
+  opacity: 0.6;
+}
+.ua__btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
 .uf {
   display: flex;
   flex-wrap: wrap;
@@ -101,6 +132,24 @@ const ago = (iso: string | null) => {
 .uf__q {
   flex: 1 1 260px;
   max-width: 420px;
+}
+.uf__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.uf__chips button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+.uf__chips button[aria-checked='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--ink-text);
 }
 .uf__sort {
   display: flex;

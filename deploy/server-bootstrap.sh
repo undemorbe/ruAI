@@ -6,17 +6,27 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 id ruai-admin >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin ruai-admin
+# API сайта и общая группа для базы (/var/lib/ruai): API пишет, админка читает отчёты и меняет настройки
+getent group ruai-data >/dev/null || groupadd --system ruai-data
+id ruai-api >/dev/null 2>&1 || useradd --system --no-create-home --shell /usr/sbin/nologin -g ruai-data ruai-api
+install -d -m 700 -o ruai-api -g ruai-data /var/backups/ruai
 
 install -d -m 755 /var/www/ruai /var/www/ruai/dist /var/www/letsencrypt
 install -d -m 750 -o root -g www-data /var/www/ruai-admin
 install -d -m 750 -o ruai-admin -g ruai-admin /var/log/ruai-admin
 # fail2ban не запустит jail без файла журнала
 [ -f /var/log/ruai-admin/auth.log ] || install -m 640 -o ruai-admin -g ruai-admin /dev/null /var/log/ruai-admin/auth.log
+install -d -m 750 -o ruai-api -g ruai-data /var/log/ruai-api
+[ -f /var/log/ruai-api/auth.log ] || install -m 640 -o ruai-api -g ruai-data /dev/null /var/log/ruai-api/auth.log
 [ -f /var/log/nginx/ruai-probe.log ] || install -m 640 -o www-data -g adm /dev/null /var/log/nginx/ruai-probe.log
 
-install -m 644 "$HERE/systemd/ruai-admin.service" /etc/systemd/system/ruai-admin.service
+for u in ruai-admin.service ruai-api.service ruai-backup.service ruai-backup.timer; do
+  install -m 644 "$HERE/systemd/$u" "/etc/systemd/system/$u"
+done
 install -m 644 "$HERE/logrotate/ruai-admin" /etc/logrotate.d/ruai-admin
+install -m 644 "$HERE/logrotate/ruai-api" /etc/logrotate.d/ruai-api
 systemctl daemon-reload
+systemctl enable --now ruai-backup.timer >/dev/null
 
 install -d -m 755 /etc/nginx/snippets
 install -m 644 "$HERE/nginx/ruai-security-headers.conf" /etc/nginx/snippets/ruai-security-headers.conf
@@ -33,6 +43,7 @@ systemctl reload nginx
 
 install -m 644 "$HERE/fail2ban/filter.d/ruai-admin.conf" /etc/fail2ban/filter.d/ruai-admin.conf
 install -m 644 "$HERE/fail2ban/filter.d/ruai-probe.conf" /etc/fail2ban/filter.d/ruai-probe.conf
+install -m 644 "$HERE/fail2ban/filter.d/ruai-api.conf" /etc/fail2ban/filter.d/ruai-api.conf
 install -m 644 "$HERE/fail2ban/jail.d/ruai.local" /etc/fail2ban/jail.d/ruai.local
 systemctl enable fail2ban >/dev/null
 systemctl restart fail2ban

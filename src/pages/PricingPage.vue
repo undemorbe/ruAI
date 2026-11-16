@@ -5,8 +5,10 @@ import type { PlanId } from '@/api'
 import PlanCard from '@/components/pricing/PlanCard.vue'
 import TierToggle from '@/components/pricing/TierToggle.vue'
 import AppHeader from '@/components/ui/AppHeader.vue'
+import Crumbs from '@/components/ui/Crumbs.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { formatPrice } from '@/lib/format'
+import { PRICING_INTRO } from '@/content/landing-seo'
 import { useBillingStore } from '@/stores/billing'
 
 const billing = useBillingStore()
@@ -31,9 +33,10 @@ const TRUST = [
   <div class="page">
     <AppHeader />
     <main class="wrap">
+      <Crumbs />
       <div class="intro">
         <h1>Тарифы ChatGPT</h1>
-        <p>Выберите период. Все тарифы — без VPN, на русском и с оплатой российскими картами.</p>
+        <p>{{ PRICING_INTRO }}</p>
         <TierToggle v-model="billing.tier" />
       </div>
 
@@ -64,6 +67,7 @@ const TRUST = [
           <div><b>{{ t.title }}</b><p>{{ t.text }}</p></div>
         </li>
       </ul>
+      <p class="pay-more"><RouterLink to="/payment">Как оплатить ChatGPT российской картой</RouterLink> · <RouterLink to="/faq">Вопросы и ответы</RouterLink></p>
     </main>
   </div>
 </template>
@@ -121,6 +125,11 @@ h1 {
   padding: 28px 0 0;
   list-style: none;
   border-top: 1px solid var(--line);
+}
+.pay-more {
+  margin: 28px 0 0;
+  text-align: center;
+  color: var(--text-2);
 }
 .trust li {
   display: flex;

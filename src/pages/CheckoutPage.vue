@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { api, type PaymentMethod, type Plan, type PlanTier } from '@/api'
+import { api, ApiError, type PaymentMethod, type Plan, type PlanTier } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
+import AuthDialog from '@/components/ui/AuthDialog.vue'
 import Icon from '@/components/ui/Icon.vue'
-import { TIER_LABEL, fmt } from '@/content/plans'
+import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
+import { MODEL_NAME } from '@/config/app'
+import { LEGAL_VERSION } from '@/content/legal/operator'
+import { TIER_LABEL } from '@/content/plans'
+import { isEmail, normalizeEmail } from '@/lib/auth'
 import { formatPrice } from '@/lib/format'
 import { useUserStore } from '@/stores/user'
 
@@ -16,9 +21,16 @@ const tier = computed<PlanTier>(() => (route.query.tier === 'media' ? 'media' : 
 const plan = ref<Plan | null>(null)
 const notFound = ref(false)
 
-const email = ref(user.user?.email ?? '')
 const method = ref<PaymentMethod>('card')
-const agree = ref(false)
+/** Только для кассового чека (54-ФЗ). Подставляется последний введённый. */
+const email = ref('')
+const emailOk = computed(() => isEmail(email.value))
+const agreeTerms = ref(false)
+const agreeRecurring = ref(false)
+/** Оплата только из аккаунта: гостю - предложение войти (сервер всё равно ответит 401). */
+const needAuth = computed(() => user.ready && user.isGuest)
+const authAsk = ref(false)
+const agreed = computed(() => agreeTerms.value && agreeRecurring.value)
 const submitting = ref(false)
 const error = ref<string | null>(null)
 const touched = ref(false)
@@ -29,22 +41,36 @@ const METHODS: { id: PaymentMethod; title: string; hint: string; icon: string }[
   { id: 'sberpay', title: 'SberPay', hint: 'В приложении СберБанк Онлайн', icon: 'wallet' },
 ]
 
-const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim()))
-const canPay = computed(() => !!plan.value && emailOk.value && agree.value && !submitting.value)
+const canPay = computed(() => !!plan.value && !needAuth.value && agreed.value && emailOk.value && !submitting.value)
 
 onMounted(async () => {
+  void user.ensure().then(() => {
+    authAsk.value = user.isGuest
+    email.value ||= user.user?.email ?? ''
+  })
   const plans = await api.billing.plans(tier.value)
   plan.value = plans.find((p) => p.id === route.params.plan) ?? null
   notFound.value = !plan.value
 })
 
 async function pay() {
+  await user.ensure()
+  if (user.isGuest) {
+    authAsk.value = true
+    return
+  }
   touched.value = true
   if (!canPay.value || !plan.value) return
   submitting.value = true
   error.value = null
   try {
-    const session = await api.billing.checkout({ planId: plan.value.id, tier: tier.value, email: email.value.trim(), method: method.value })
+    const session = await api.billing.checkout({
+      planId: plan.value.id,
+      tier: tier.value,
+      method: method.value,
+      email: normalizeEmail(email.value),
+      consent: { version: LEGAL_VERSION, terms: true, recurring: true },
+    })
     const base = import.meta.env.BASE_URL
     if (session.confirmationUrl.startsWith(base)) {
       await router.push('/' + session.confirmationUrl.slice(base.length))
@@ -52,8 +78,14 @@ async function pay() {
       window.location.assign(session.confirmationUrl)
     }
   } catch (e) {
-    error.value = (e as Error).message || 'Не удалось создать платёж'
     submitting.value = false
+    if (e instanceof ApiError && e.code === 'auth_required') {
+      // сессия истекла, пока страница была открыта
+      await user.fetchMe()
+      authAsk.value = true
+      return
+    }
+    error.value = (e as Error).message || 'Не удалось создать платёж'
   }
 }
 </script>
@@ -73,19 +105,35 @@ async function pay() {
         <form class="form" novalidate @submit.prevent="pay">
           <h1>Оформление подписки</h1>
 
-          <label class="lbl" for="email">Email для чека и доступа</label>
-          <input
-            id="email"
-            v-model="email"
-            class="field"
-            :class="{ bad: touched && !emailOk }"
-            type="email"
-            inputmode="email"
-            autocomplete="email"
-            placeholder="you@example.ru"
-            required
-          />
-          <p v-if="touched && !emailOk" class="err">Введите корректный email</p>
+          <div v-if="needAuth" class="acc acc--guest">
+            <span>Подписка оформляется из аккаунта.</span>
+            <button type="button" class="acc__link" @click="authAsk = true">Войти или зарегистрироваться</button>
+          </div>
+          <p v-else-if="user.user?.login" class="acc">
+            Аккаунт: <b>{{ user.user.login }}</b>
+          </p>
+
+          <div class="mail">
+            <label class="lbl" for="co-email">Email для чека</label>
+            <input
+              id="co-email"
+              v-model="email"
+              class="field"
+              :class="{ bad: touched && !emailOk }"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              autocapitalize="off"
+              spellcheck="false"
+              maxlength="254"
+              placeholder="you@example.ru"
+              :aria-invalid="touched && !emailOk"
+              aria-describedby="co-email-hint"
+              required
+            />
+            <p v-if="touched && !emailOk" id="co-email-hint" class="err">Введите корректный email: на него придёт кассовый чек</p>
+            <p v-else id="co-email-hint" class="hint">Сюда придёт кассовый чек. Для входа email не используется.</p>
+          </div>
 
           <fieldset class="methods">
             <legend class="lbl">Способ оплаты</legend>
@@ -98,13 +146,22 @@ async function pay() {
           </fieldset>
 
           <label class="agree">
-            <input v-model="agree" type="checkbox" />
+            <input v-model="agreeTerms" type="checkbox" />
             <span>
-              Принимаю <a href="#" @click.prevent>оферту</a> и <a href="#" @click.prevent>политику конфиденциальности</a>, согласен(на) на
-              автоматическое продление подписки. Отменить можно в любой момент.
+              Принимаю <RouterLink :to="{ name: 'legal', params: { doc: 'terms' } }" target="_blank">условия использования</RouterLink> и
+              <RouterLink :to="{ name: 'legal', params: { doc: 'privacy' } }" target="_blank">политику обработки персональных данных</RouterLink>
             </span>
           </label>
-          <p v-if="touched && !agree" class="err">Необходимо согласие с условиями</p>
+          <label class="agree">
+            <input v-model="agreeRecurring" type="checkbox" />
+            <span v-if="plan">
+              Согласен(на) на автоматическое списание {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока не отменю подписку.
+              Отменить можно в любой момент.
+            </span>
+            <span v-else>Согласен(на) на автоматическое продление подписки</span>
+          </label>
+          <p v-if="touched && !agreed" class="err">Отметьте все согласия, чтобы перейти к оплате</p>
+          <UnprotectedBanner variant="inline" class="unprot" />
 
           <button type="submit" class="btn btn--accent btn--block pay" :disabled="submitting">
             <Icon v-if="!submitting" name="lock" :size="17" />
@@ -118,22 +175,21 @@ async function pay() {
         <aside class="sum" aria-label="Ваш заказ">
           <template v-if="plan">
             <span class="sum__k">Ваш заказ</span>
-            <h2>ChatGPT · {{ plan.title }}</h2>
+            <h2>{{ MODEL_NAME }} · {{ plan.title }}</h2>
             <p class="sum__tier">{{ TIER_LABEL[tier] }}</p>
             <ul>
               <li v-for="f in plan.features" :key="f.text"><Icon name="check" :size="16" />{{ f.text }}</li>
             </ul>
             <dl>
-              <div><dt>Запросов на период</dt><dd>{{ fmt(plan.requestsTotal) }}</dd></div>
-              <div><dt>В сутки</dt><dd>до {{ fmt(plan.requestsPerDay) }}</dd></div>
               <div class="total"><dt>К оплате</dt><dd>{{ formatPrice(plan.price) }} ₽</dd></div>
             </dl>
-            <p class="sum__note">Счётчик запросов обнуляется сразу после оплаты. Далее — {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока подписка активна.</p>
+            <p class="sum__note">Доступ открывается сразу после оплаты. Далее — {{ formatPrice(plan.price) }} ₽ каждые {{ plan.periodDays }} дн., пока вы не отмените подписку.</p>
           </template>
           <div v-else class="sum__skel" />
         </aside>
       </div>
     </main>
+    <AuthDialog v-if="authAsk" reason="pay" :next="route.fullPath" @close="authAsk = false" />
   </div>
 </template>
 
@@ -178,6 +234,39 @@ h1 {
 }
 .field.bad {
   border-color: var(--danger);
+}
+.acc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: var(--radius-s);
+  background: var(--bg-sunken);
+  color: var(--text-2);
+  font-size: 14.5px;
+}
+.acc b {
+  color: var(--text);
+  font-weight: 600;
+}
+.acc__link {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mail {
+  margin: 0 0 22px;
+}
+.hint {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+.unprot {
+  margin-top: 16px;
 }
 .err {
   margin: 6px 0 0;
@@ -244,6 +333,9 @@ h1 {
   font-size: 13px;
   color: var(--text-2);
   cursor: pointer;
+}
+.agree + .agree {
+  margin-top: 12px;
 }
 .agree input {
   flex: none;

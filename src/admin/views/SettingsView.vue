@@ -5,7 +5,7 @@ import { PLAN_LABEL, TIER_SHORT } from '../format'
 import Panel from '../ui/Panel.vue'
 import { useSettings } from '../useSettings'
 
-/** Внутренние бюджеты подписок и курс — пользователям не показываются. */
+/** Внутренние бюджеты подписок и курс - пользователям не показываются. */
 const st = useSettings()
 const TIERS: PlanTier[] = ['text', 'media']
 const PLANS: PlanId[] = ['week', 'month', 'quarter']
@@ -63,7 +63,7 @@ const setNum = (e: Event, fn: (n: number) => void) => fn(Number((e.target as HTM
       <p class="muted">Расходы OpenRouter приходят в долларах; по этому курсу считаются бюджеты и отчёты в рублях.</p>
     </Panel>
 
-    <p class="muted">Генерация изображений и её лимиты — в разделе <a href="#/images">«Изображения»</a>.</p>
+    <p class="muted">Генерация изображений и её лимиты - в разделе <a href="#/images">«Изображения»</a>.</p>
     <p v-if="st.error.value" class="bad">{{ st.error.value }}</p>
     <div class="act">
       <button class="btn btn--ink" :disabled="!st.dirty.value || st.busy.value">{{ st.busy.value ? 'Сохраняем…' : 'Сохранить' }}</button>

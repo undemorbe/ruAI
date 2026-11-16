@@ -1,0 +1,20 @@
+User-agent: *
+Disallow: /api/
+Disallow: /chat/
+Disallow: /checkout/
+Disallow: /payment/result
+Disallow: /account
+Disallow: /reset
+Allow: /
+
+User-agent: Yandex
+Disallow: /api/
+Disallow: /chat/
+Disallow: /checkout/
+Disallow: /payment/result
+Disallow: /account
+Disallow: /reset
+Allow: /
+Clean-param: utm_source&utm_medium&utm_campaign&utm_content&utm_term&yclid&gclid&fbclid&ysclid&_openstat&from&v
+
+Sitemap: https://ru-chatgpt.com/sitemap.xml

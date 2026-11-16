@@ -1,3 +1,4 @@
+import { prepareUpload } from '@/lib/image'
 import { http, readSSE } from '../http'
 import type { AuthService, BillingService, ChatService } from './contracts'
 import type {
@@ -15,8 +16,17 @@ import type {
  * REST implementations. Endpoint map (to implement on backend):
  *
  *   GET    /auth/me                 -> User
- *   POST   /auth/code               { email }
- *   POST   /auth/verify             { email, code } -> { user, token }
+ *   Реализация: server/src/api (ruai-api). Все запросы несут X-Requested-With: ruai, изменения - свой Origin.
+ *   Сессия: HttpOnly-cookie __Host-ruai_s; ответы со входом отдают token: '' (скриптам токен не виден).
+ *
+ *   POST   /auth/register           { login, password, consent } -> Session
+ *   POST   /auth/login              { login, password } -> Session | Challenge (если привязан Telegram)
+ *   POST   /auth/challenge          { id, code? } -> Session | { status: 'pending' }; 410 отклонена/устарела
+ *   POST   /auth/password           { current, password } -> 204, остальные сессии закрываются
+ *   POST   /auth/reset              { login } -> 204 всегда; ссылка /reset#token приходит в Telegram
+ *   POST   /auth/reset/confirm      { token, password } -> 204, все сессии закрываются
+ *   POST   /tg/link                 -> { url, expiresAt } ссылка t.me/<бот>?start=<токен>
+ *   POST   /tg/unlink               -> Challenge (подтверждение в боте)
  *   POST   /auth/logout
  *
  *   GET    /chats                   -> ChatSummary[]
@@ -28,6 +38,7 @@ import type {
  *
  *   GET    /billing/plans?tier=     -> Plan[]
  *   POST   /billing/checkout        CheckoutRequest -> CheckoutSession
+ *            consent: terms+recurring обязательны, personalData — для гостя; версия = LEGAL_VERSION, иначе 422
  *   GET    /billing/payments/:id    -> PaymentInfo
  *
  *   Админка — отдельный бандл и отдельный сервер (server/), см. README «Админка».
@@ -51,17 +62,23 @@ import type {
 
 export const httpAuth: AuthService = {
   me: () => http.get<User>('/auth/me'),
-  requestCode: (email) => http.post('/auth/code', { email }),
-  verifyCode: (email, code) => http.post('/auth/verify', { email, code }),
+  register: (login, password, consent) => http.post('/auth/register', { login, password, consent }),
+  login: (login, password) => http.post('/auth/login', { login, password }),
+  challenge: (id, code) => http.post('/auth/challenge', code === undefined ? { id } : { id, code }),
+  changePassword: (current, password) => http.post('/auth/password', { current, password }),
+  requestReset: (login) => http.post('/auth/reset', { login }),
+  confirmReset: (token, password) => http.post('/auth/reset/confirm', { token, password }),
+  linkTelegram: () => http.post('/tg/link'),
+  unlinkTelegram: () => http.post('/tg/unlink'),
   logout: () => http.post('/auth/logout'),
 }
 
 export const httpChat: ChatService = {
   list: () => http.get<ChatSummary[]>('/chats'),
   messages: (chatId) => http.get<Message[]>(`/chats/${chatId}/messages`),
-  upload(file) {
+  async upload(file) {
     const body = new FormData()
-    body.append('file', file)
+    body.append('file', await prepareUpload(file))
     return http.post<ImageRef>('/uploads', body, { timeoutMs: 60_000 })
   },
   async *send(payload, signal) {

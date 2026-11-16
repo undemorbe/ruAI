@@ -1,11 +1,25 @@
 /**
  * Источник данных админки и файловое хранилище (настройки, журнал, последний шаг TOTP).
  * Отчёты из боевой базы подключаются реализацией AdminRepo поверх неё; до этого сервер
- * отвечает 501, а с ADMIN_DEMO=1 — демо-данными.
+ * отвечает 501, а с ADMIN_DEMO=1 - демо-данными.
  */
 import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { AdminSettings, ApiReport, AuditEntry, FinanceReport, ImagesReport, Overview, PaymentsReport, RangeDays, UsersPage, UsersQuery } from '../../src/admin/api/types.ts'
+import type {
+  AdminSettings,
+  AnalyticsReport,
+  ApiReport,
+  AuditEntry,
+  DateRange,
+  FinanceReport,
+  ImagesReport,
+  Overview,
+  PaymentsReport,
+  UserDetail,
+  UsersPage,
+  UsersQuery,
+} from '../../src/admin/api/types.ts'
+import { analyticsReport, userDetail } from '../../src/admin/demo/analytics.ts'
 import {
   apiReport,
   buildDataset,
@@ -18,12 +32,14 @@ import {
 } from '../../src/admin/demo/dataset.ts'
 
 export interface AdminRepo {
-  overview(days: RangeDays, s: AdminSettings): Promise<Overview>
-  payments(days: RangeDays): Promise<PaymentsReport>
-  api(days: RangeDays, s: AdminSettings): Promise<ApiReport>
-  images(days: RangeDays, s: AdminSettings): Promise<ImagesReport>
+  overview(r: DateRange, s: AdminSettings): Promise<Overview>
+  analytics(r: DateRange, s: AdminSettings): Promise<AnalyticsReport>
+  payments(r: DateRange): Promise<PaymentsReport>
+  api(r: DateRange, s: AdminSettings): Promise<ApiReport>
+  images(r: DateRange, s: AdminSettings): Promise<ImagesReport>
   users(q: UsersQuery, s: AdminSettings): Promise<UsersPage>
-  finance(days: RangeDays, s: AdminSettings): Promise<FinanceReport>
+  user(id: string, s: AdminSettings): Promise<UserDetail | null>
+  finance(r: DateRange, s: AdminSettings): Promise<FinanceReport>
 }
 
 export function demoRepo(): AdminRepo {
@@ -31,17 +47,24 @@ export function demoRepo(): AdminRepo {
   // данные «живые»: раз в час пересчитываем относительно текущего времени
   const fresh = () => (Date.now() - ds.now > 3_600_000 ? (ds = buildDataset()) : ds)
   return {
-    overview: async (d, s) => overview(fresh(), d, s),
-    payments: async (d) => paymentsReport(fresh(), d),
-    api: async (d, s) => apiReport(fresh(), d, s),
-    images: async (d, s) => imagesReport(fresh(), d, s),
+    overview: async (r, s) => overview(fresh(), r, s),
+    analytics: async (r, s) => analyticsReport(fresh(), r, s),
+    payments: async (r) => paymentsReport(fresh(), r),
+    api: async (r, s) => apiReport(fresh(), r, s),
+    images: async (r, s) => imagesReport(fresh(), r, s),
     users: async (q, s) => usersPage(fresh(), q, s),
-    finance: async (d, s) => financeReport(fresh(), d, s),
+    user: async (id, s) => userDetail(fresh(), id, s),
+    finance: async (r, s) => financeReport(fresh(), r, s),
   }
 }
 
-/** Небольшое файловое хранилище: атомарная запись JSON, журнал — JSON Lines. */
-export class FileStore {
+export interface SettingsStore {
+  settings(): AdminSettings
+  saveSettings(s: AdminSettings): void
+}
+
+/** Небольшое файловое хранилище: атомарная запись JSON, журнал - JSON Lines. */
+export class FileStore implements SettingsStore {
   private dir: string
   private auditCache: AuditEntry[] = []
 
@@ -77,7 +100,7 @@ export class FileStore {
     this.write('settings.json', s)
   }
 
-  /** Последний использованный шаг TOTP переживает перезапуск — повтор кода невозможен. */
+  /** Последний использованный шаг TOTP переживает перезапуск - повтор кода невозможен. */
   lastTotpStep(): number {
     return this.read<{ step: number }>('totp.json', { step: -1 }).step
   }
@@ -95,7 +118,7 @@ export class FileStore {
   }
 }
 
-/** Строки для fail2ban: фиксированный формат, IP — единственное переменное поле. */
+/** Строки для fail2ban: фиксированный формат, IP - единственное переменное поле. */
 export function authLogger(file: string) {
   try {
     mkdirSync(dirname(file), { recursive: true, mode: 0o750 })
@@ -108,7 +131,7 @@ export function authLogger(file: string) {
     try {
       appendFileSync(file, line, { mode: 0o640 })
     } catch {
-      /* нет прав в dev — достаточно stderr/journald */
+      /* нет прав в dev - достаточно stderr/journald */
     }
   }
 }

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { LimitCode } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
+import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
 import { nextMskMidnight } from '@/lib/limits'
 
 /** Диалог при отказе по лимитам: нет подписки, закончился период или суточный лимит. */
@@ -62,6 +63,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       <template v-if="copy.pay">
         <RouterLink :to="{ name: 'pricing', query: copy.tier ? { tier: copy.tier } : {} }" class="btn btn--ink btn--block">{{ copy.tier ? 'Посмотреть тариф' : 'Выбрать период' }}</RouterLink>
         <button class="btn btn--block pw__later" @click="emit('close')">Позже</button>
+        <UnprotectedBanner variant="inline" class="pw__unprot" />
       </template>
       <button v-else class="btn btn--ink btn--block" @click="emit('close')">Понятно</button>
     </div>
@@ -69,6 +71,11 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 </template>
 
 <style scoped>
+.pw__unprot {
+  margin-top: 14px;
+  justify-content: center;
+  text-align: left;
+}
 .pw {
   position: fixed;
   inset: 0;

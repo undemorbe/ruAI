@@ -11,6 +11,13 @@ const LABEL: Record<AuditEntry['action'], string> = {
   logout: 'Выход',
   settings: 'Изменены настройки',
   locked: 'Блокировка входа',
+  grant: 'Выдана подписка',
+  block: 'Пользователь заблокирован',
+  unblock: 'Пользователь разблокирован',
+  delete_user: 'Пользователь удалён',
+  edit_sub: 'Изменена подписка',
+  edit_user: 'Изменён профиль',
+  logout_user: 'Закрыты входы пользователя',
 }
 </script>
 

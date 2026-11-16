@@ -9,9 +9,16 @@ export type ISODate = string
 // ---------- Auth / user ----------
 export interface User {
   id: ID
+  /** null у гостя. */
+  login: string | null
+  /** Email для кассовых чеков: последний введённый в форме оплаты. */
   email: string | null
   name: string
   isGuest: boolean
+  /** Telegram привязан: вход подтверждается в боте, пароль можно восстановить. */
+  telegram: boolean
+  /** На сервере работает бот входа. false: плашку и кнопки Telegram не показываем. */
+  tgEnabled: boolean
   /** Последняя подписка. Может быть истёкшей — история чатов при этом сохраняется. */
   subscription: Subscription | null
 }
@@ -92,6 +99,7 @@ export interface SendMessagePayload {
  * до начала стрима или в событии `error` внутри стрима.
  */
 export type LimitCode =
+  | 'auth_required' // гость: сначала войти или зарегистрироваться
   | 'no_subscription' // нет активной подписки
   | 'daily_limit' // исчерпан суточный лимит
   | 'total_limit' // исчерпан лимит периода
@@ -104,6 +112,7 @@ export type LimitCode =
   | 'generation_disabled' // генерация отключена в админке
   | 'bad_image' // файл не изображение или слишком большой
   | 'upstream' // ошибка OpenRouter
+  | 'model_off' // модель ещё не подключена на сервере
 
 /** Server-sent stream events (SSE `data:` lines carry JSON of this union). */
 export type ChatStreamEvent =
@@ -138,11 +147,51 @@ export interface Plan {
 
 export type PaymentMethod = 'card' | 'sbp' | 'sberpay'
 
+/** Сессия после входа. Настоящий сервер держит её в HttpOnly-cookie, token есть только у мока. */
+export interface Session {
+  user: User
+  token: string
+}
+
+/** Пароль верный, нужен второй фактор: подтверждение в Telegram или код из сообщения бота. */
+export interface Challenge {
+  /** Секрет заявки: знает только этот браузер. */
+  challenge: string
+  expiresAt: ISODate
+  /** false: сообщение в Telegram не ушло. */
+  sent: boolean
+}
+
+export type LoginResult = Session | Challenge
+export type ChallengeResult = Session | { status: 'pending' }
+
+/**
+ * Согласия, отмеченные пользователем. Сервер записывает их с версией документов, временем и IP
+ * (доказательство согласия по 152-ФЗ) и отклоняет запрос с устаревшей версией.
+ */
+export interface RegisterConsent {
+  /** LEGAL_VERSION документов, которые видел пользователь. */
+  version: string
+  /** Оферта и политика обработки ПДн. */
+  terms: true
+  /** Отдельное согласие на обработку ПДн (ч. 4 ст. 9 152-ФЗ). */
+  personalData: true
+}
+
+export interface CheckoutConsent {
+  version: string
+  terms: true
+  /** Согласие на автоматические списания (рекуррентные платежи). */
+  recurring: true
+}
+
 export interface CheckoutRequest {
   planId: PlanId
   tier: PlanTier
-  email: string
   method: PaymentMethod
+  /** Только для кассового чека (54-ФЗ); вход по нему невозможен. */
+  email: string
+  consent: CheckoutConsent
 }
 
 export interface CheckoutSession {

@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import type { Plan } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
-import { fmt, pricePerRequest } from '@/content/plans'
 import { formatPrice } from '@/lib/format'
 
 const props = defineProps<{ plan: Plan }>()
@@ -24,12 +23,6 @@ const renewText = computed(() => {
       <b class="pc__now">{{ formatPrice(plan.price) }}</b>
       <span class="pc__cur">₽</span>
     </div>
-    <p class="pc__day">≈ {{ String(pricePerRequest(plan)).replace('.', ',') }} ₽ за запрос</p>
-
-    <dl class="pc__quota">
-      <div><dt>Запросов на период</dt><dd>{{ fmt(plan.requestsTotal) }}</dd></div>
-      <div><dt>В сутки, до</dt><dd>{{ fmt(plan.requestsPerDay) }}</dd></div>
-    </dl>
 
     <p class="pc__tag">{{ plan.tagline }}</p>
 
@@ -117,37 +110,11 @@ const renewText = computed(() => {
   color: var(--text-2);
   margin-left: -4px;
 }
-.pc__day {
-  margin: 6px 0 0;
-  color: var(--text-3);
-  font-size: 13px;
-}
-.pc__quota {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 18px 0 0;
-  border-block: 1px solid var(--line);
-}
-.pc__quota div {
-  padding: 12px 0;
-}
-.pc__quota div + div {
-  padding-left: 16px;
-  border-left: 1px solid var(--line);
-}
-.pc__quota dt {
-  font-size: 12px;
-  color: var(--text-3);
-}
-.pc__quota dd {
-  margin: 2px 0 0;
-  font: 700 24px/1.1 var(--font-display);
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
 .pc__tag {
   min-height: 3em;
-  margin: 16px 0 18px;
+  margin: 18px 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
   font-weight: 600;
   line-height: 1.45;
 }

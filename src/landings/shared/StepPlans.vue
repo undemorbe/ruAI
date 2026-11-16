@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { fmt, getPlans } from '@/content/plans'
+import { getPlans } from '@/content/plans'
 import { formatPrice } from '@/lib/format'
 
 /** "Plans that step up": tile height grows with the plan. Colours come from --plan-1..3 tokens. */
@@ -15,7 +15,6 @@ const plans = getPlans()
         <div class="sp__body">
           <h3>{{ p.title }}</h3>
           <p class="sp__price">{{ formatPrice(p.price) }} ₽</p>
-          <p class="sp__quota">{{ fmt(p.requestsTotal) }} запросов · до {{ fmt(p.requestsPerDay) }} в сутки</p>
           <ul>
             <li v-for="f in p.features" :key="f.text">{{ f.text }}</li>
           </ul>
@@ -92,10 +91,6 @@ const plans = getPlans()
   font: 700 56px/1 var(--f-display);
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-}
-.sp__quota {
-  margin: 6px 0 0;
-  font: 600 16px var(--f-text);
 }
 .sp__body ul {
   display: grid;

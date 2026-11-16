@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { Message } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
+import BrandMark from '@/components/ui/BrandMark.vue'
 import { splitBlocks } from '@/lib/format'
 
 const props = defineProps<{ message: Message }>()
@@ -22,7 +23,7 @@ async function copy() {
 <template>
   <article class="msg" :class="`msg--${message.role}`">
     <div v-if="message.role === 'assistant'" class="msg__avatar" aria-hidden="true">
-      <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="currentColor" /><circle cx="44" cy="22" r="6" fill="var(--accent)" /></svg>
+      <BrandMark />
     </div>
     <div class="msg__body">
       <div v-if="message.images?.length" class="msg__pics" :class="{ 'is-gen': message.role === 'assistant' }">

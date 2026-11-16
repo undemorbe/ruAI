@@ -1,15 +1,21 @@
 import type {
+  Challenge,
+  ChallengeResult,
   ChatStreamEvent,
   ChatSummary,
   CheckoutRequest,
   CheckoutSession,
   ID,
   ImageRef,
+  ISODate,
+  LoginResult,
   Message,
   PaymentInfo,
   Plan,
   PlanTier,
+  RegisterConsent,
   SendMessagePayload,
+  Session,
   User,
 } from '../types'
 
@@ -17,8 +23,19 @@ import type {
 
 export interface AuthService {
   me(): Promise<User>
-  requestCode(email: string): Promise<void>
-  verifyCode(email: string, code: string): Promise<{ user: User; token: string }>
+  register(login: string, password: string, consent: RegisterConsent): Promise<Session>
+  /** Неверный пароль и несуществующий логин дают одинаковую ошибку bad_credentials. */
+  login(login: string, password: string): Promise<LoginResult>
+  /** Опрос заявки 2FA или ввод кода. 410: заявка отклонена (challenge_denied) или устарела. */
+  challenge(id: string, code?: string): Promise<ChallengeResult>
+  changePassword(current: string, password: string): Promise<void>
+  /** Ответ одинаков для любого логина: ссылка приходит в Telegram, если он привязан. */
+  requestReset(login: string): Promise<void>
+  confirmReset(token: string, password: string): Promise<void>
+  /** Ссылка на бота для привязки; привязка завершается в боте, сайт узнаёт о ней по me(). */
+  linkTelegram(): Promise<{ url: string; expiresAt: ISODate }>
+  /** Отвязка подтверждается в боте; после неё все сессии закрываются. */
+  unlinkTelegram(): Promise<Challenge>
   logout(): Promise<void>
 }
 

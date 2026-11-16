@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import BrandMark from '@/components/ui/BrandMark.vue'
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
-import { adminApi, type RangeDays } from './api'
-import { bumpIdle, days, logout, session } from './state'
+import { adminApi } from './api'
+import { bumpIdle, logout, range, session, userCard } from './state'
+import RangePicker from './ui/RangePicker.vue'
+import UserDrawer from './ui/UserDrawer.vue'
 import LoginView from './views/LoginView.vue'
 import OverviewView from './views/OverviewView.vue'
+import AnalyticsView from './views/AnalyticsView.vue'
 import PaymentsView from './views/PaymentsView.vue'
 import ApiView from './views/ApiView.vue'
 import ImagesView from './views/ImagesView.vue'
@@ -15,6 +19,7 @@ import SecurityView from './views/SecurityView.vue'
 /** Каркас админки: проверка сессии, разделы (hash-маршруты), период отчётов. */
 const SECTIONS: { id: string; title: string; view: Component; period: boolean }[] = [
   { id: 'overview', title: 'Главная', view: OverviewView, period: true },
+  { id: 'analytics', title: 'Аналитика', view: AnalyticsView, period: true },
   { id: 'payments', title: 'Подписки и платежи', view: PaymentsView, period: true },
   { id: 'api', title: 'Аналитика API', view: ApiView, period: true },
   { id: 'images', title: 'Изображения', view: ImagesView, period: true },
@@ -22,12 +27,6 @@ const SECTIONS: { id: string; title: string; view: Component; period: boolean }[
   { id: 'finance', title: 'Финансы', view: FinanceView, period: true },
   { id: 'settings', title: 'Настройки', view: SettingsView, period: false },
   { id: 'security', title: 'Безопасность', view: SecurityView, period: false },
-]
-const RANGES: { v: RangeDays; label: string }[] = [
-  { v: 7, label: '7 дн' },
-  { v: 30, label: '30 дн' },
-  { v: 90, label: '90 дн' },
-  { v: 365, label: 'Год' },
 ]
 
 const ready = ref(false)
@@ -58,6 +57,7 @@ onBeforeUnmount(() => {
     <div v-else class="sh">
       <aside class="sh__side">
         <div class="sh__brand">
+          <span class="sh__knot"><BrandMark /></span>
           Панель
           <span v-if="session.demo" class="sh__demo" title="Данные сгенерированы, база не подключена">демо</span>
         </div>
@@ -73,11 +73,10 @@ onBeforeUnmount(() => {
       <main class="sh__main">
         <header class="sh__head">
           <h1>{{ current.title }}</h1>
-          <div v-if="current.period" class="sh__range" role="radiogroup" aria-label="Период">
-            <button v-for="r in RANGES" :key="r.v" role="radio" :aria-checked="days === r.v" @click="days = r.v">{{ r.label }}</button>
-          </div>
+          <RangePicker v-if="current.period" v-model="range" />
         </header>
         <component :is="current.view" :key="current.id" />
+        <UserDrawer v-if="userCard" :id="userCard" :key="userCard" @close="userCard = null" />
       </main>
     </div>
   </template>
@@ -106,6 +105,10 @@ onBeforeUnmount(() => {
   gap: 8px;
   padding: 0 10px;
   font: 600 17px/1 var(--font-display);
+}
+.sh__knot {
+  width: 22px;
+  height: 22px;
 }
 .sh__demo {
   padding: 2px 7px;
@@ -164,25 +167,6 @@ onBeforeUnmount(() => {
 h1 {
   margin: 0;
   font: 600 24px/1.2 var(--font-display);
-}
-.sh__range {
-  display: inline-flex;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--bg-elev);
-}
-.sh__range button {
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 7px;
-  color: var(--text-2);
-  font-size: 13.5px;
-  font-variant-numeric: tabular-nums;
-}
-.sh__range button[aria-checked='true'] {
-  background: var(--ink);
-  color: var(--ink-text);
 }
 
 @media (max-width: 860px) {

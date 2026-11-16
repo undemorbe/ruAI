@@ -22,6 +22,9 @@ export interface Config {
   insecureCookie: boolean
   idleMs: number
   absoluteMs: number
+  /** Общая база сайта (RUAI_DB); без неё — демо или 501. */
+  dbFile: string | null
+  imagesDir: string
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -68,6 +71,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authLog: env.ADMIN_AUTH_LOG?.trim() || '/var/log/ruai-admin/auth.log',
     demo: env.ADMIN_DEMO === '1',
     insecureCookie: origin.startsWith('http://'),
+    dbFile: env.RUAI_DB?.trim() || null,
+    imagesDir: env.RUAI_IMAGES_DIR?.trim() || '/var/lib/ruai/images',
     idleMs: 30 * 60_000,
     absoluteMs: 12 * 60 * 60_000,
   }

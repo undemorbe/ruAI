@@ -13,7 +13,8 @@
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": { "@/*": ["./../src/*"] }
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts", "../src/admin/demo/dataset.ts", "../src/admin/api/types.ts", "../src/api/types.ts"]
 }

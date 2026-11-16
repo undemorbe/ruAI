@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// Знак сервиса: три овальных звена, повёрнутых на 120° и сплетённых строго «над-под».
-// Источник правды для src/content/brand.ts, public/favicon.svg и PNG-иконок.
+// Знак сервиса. Источник правды для src/content/brand.ts, public/favicon.svg и PNG-иконок.
+// ACTIVE выбирает знак: 'traced' - временный, трассирован с фото (scripts/brand-mark-traced.mjs, заливка);
+// 'woven' - свой: три овальных звена, повёрнутых на 120° и сплетённых строго «над-под» (обводка).
 //   node scripts/brand-mark.mjs            — перегенерировать файлы
 //   node scripts/brand-mark.mjs --check    — убедиться, что файлы совпадают с генератором (CI/тесты)
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { TRACED_PATH } from './brand-mark-traced.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -113,31 +115,46 @@ export function markPath(spec = SPEC) {
     .join('')
 }
 
+/** Какой знак сейчас на сайте. */
+export const ACTIVE = 'traced'
+
+/** Знак: путь в поле 64×64 и ширина обводки (0 - путь заливается с fill-rule evenodd). */
+export function activeMark(which = ACTIVE) {
+  if (which === 'traced') return { d: TRACED_PATH, stroke: 0 }
+  if (which === 'woven') return { d: markPath(), stroke: SPEC.band }
+  throw new Error(`неизвестный знак: ${which}`)
+}
+
+/** Атрибуты отрисовки пути знака цветом color. */
+export function paintAttrs({ stroke }, color) {
+  return stroke ? `fill="none" stroke="${color}" stroke-width="${stroke}"` : `fill="${color}" fill-rule="evenodd"`
+}
+
 /** Плитка: тёмный скруглённый квадрат, знак светлый, уменьшен до 86% от поля. */
-export function tileSvg(d, { bg = '#0a0a0a', fg = '#f5f5f5' } = {}) {
+export function tileSvg(mark, { bg = '#0a0a0a', fg = '#f5f5f5' } = {}) {
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="${bg}"/>` +
-    `<path d="${d}" transform="translate(32 32) scale(.86) translate(-32 -32)" fill="none" stroke="${fg}" stroke-width="${SPEC.band}"/></svg>\n`
+    `<path d="${mark.d}" transform="translate(32 32) scale(.86) translate(-32 -32)" ${paintAttrs(mark, fg)}/></svg>\n`
   )
 }
 
-function brandTs(d) {
-  return `// Сгенерировано scripts/brand-mark.mjs — не править вручную.
-/** Знак сервиса в поле 64×64: обводка шириной MARK_STROKE, без заливки. */
+function brandTs({ d, stroke }) {
+  return `// Сгенерировано scripts/brand-mark.mjs - не править вручную.
+/** Знак сервиса в поле 64×64. MARK_STROKE > 0: обводка этой ширины без заливки; 0: заливка с fill-rule evenodd. */
 export const MARK_PATH =
   '${d}'
-export const MARK_STROKE = ${SPEC.band}
+export const MARK_STROKE: number = ${stroke}
 `
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const w = weave()
   if (!w.alternating || w.crossings.length !== 6) throw new Error(`плетение неверное: ${w.crossings.length} пересечений`)
-  const d = markPath()
+  const mark = activeMark()
   const outputs = {
-    'src/content/brand.ts': brandTs(d),
-    'public/favicon.svg': tileSvg(d),
-    'admin/public/favicon.svg': tileSvg(d),
+    'src/content/brand.ts': brandTs(mark),
+    'public/favicon.svg': tileSvg(mark),
+    'admin/public/favicon.svg': tileSvg(mark),
   }
   if (process.argv.includes('--check')) {
     const stale = Object.entries(outputs).filter(([f, s]) => readFileSync(join(ROOT, f), 'utf8') !== s).map(([f]) => f)
@@ -148,6 +165,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     // PNG для iOS/Android — растеризация rsvg-convert (brew install librsvg)
     for (const [f, px] of [['public/apple-touch-icon.png', 180], ['public/icon-512.png', 512]])
       execFileSync('rsvg-convert', ['-w', String(px), '-h', String(px), '-o', join(ROOT, f), join(ROOT, 'public/favicon.svg')])
-    console.log(`brand: ${d.length} символов пути, файлы обновлены`)
+    console.log(`brand: знак ${ACTIVE}, ${mark.d.length} символов пути, файлы обновлены`)
   }
 }

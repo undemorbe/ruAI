@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { api, type PaymentInfo } from '@/api'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import Icon from '@/components/ui/Icon.vue'
+import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
 import { formatPrice } from '@/lib/format'
 import { useUserStore } from '@/stores/user'
 
@@ -24,7 +25,7 @@ async function poll() {
   try {
     info.value = await api.billing.payment(id)
     if (info.value.status === 'pending' && tries++ < 20) timer = setTimeout(poll, 2000)
-    // оплата открыла новый период — подтягиваем подписку и обнулённые счётчики
+    // оплата открыла новый период: подтягиваем подписку и обнулённые счётчики
     else if (info.value.status === 'succeeded') void user.fetchMe()
   } catch {
     failed.value = true
@@ -47,14 +48,18 @@ onBeforeUnmount(() => clearTimeout(timer))
       <div v-else-if="info?.status === 'succeeded'" class="res__state">
         <span class="badge ok"><Icon name="check" :size="30" :stroke="2.4" /></span>
         <h1>Оплата прошла</h1>
-        <p>Подписка активна. Чек отправлен на почту — {{ formatPrice(info.amount) }} ₽.</p>
+        <p>Подписка активна. Чек на {{ formatPrice(info.amount) }} ₽ отправлен на почту{{ user.user?.email ? ` ${user.user.email}` : '' }}.</p>
+        <template v-if="user.showUnprotected">
+          <p class="res__warn">Подписка привязана к аккаунту {{ user.user?.login }}. Подключите Telegram, чтобы не потерять к нему доступ.</p>
+          <UnprotectedBanner variant="block" class="res__banner" />
+        </template>
         <RouterLink to="/chat" class="btn btn--ink">Перейти в чат</RouterLink>
       </div>
 
       <div v-else-if="info?.status === 'pending'" class="res__state">
         <span class="spin" />
         <h1>Ожидаем подтверждение банка</h1>
-        <p>Можно закрыть страницу — доступ откроется автоматически.</p>
+        <p>Можно закрыть страницу: доступ откроется автоматически.</p>
       </div>
 
       <div v-else class="res__state">
@@ -90,6 +95,16 @@ p {
   margin: 0 0 20px;
   color: var(--text-2);
   max-width: 380px;
+}
+.res__warn {
+  margin-bottom: 12px;
+  color: var(--text);
+  font-weight: 600;
+}
+.res__banner {
+  max-width: 440px;
+  margin-bottom: 20px;
+  text-align: left;
 }
 .badge {
   display: grid;

@@ -10,46 +10,9 @@
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { chmodSync, existsSync, writeFileSync } from 'node:fs'
-import { stdin, stdout } from 'node:process'
 import { hashPassword, newTotpSecret, otpauthUri } from '../src/crypto.ts'
 import { parseSetupArgs, renderEnv } from '../src/setup.ts'
-
-function ask(prompt: string): Promise<string> {
-  return new Promise((resolve) => {
-    stdout.write(prompt)
-    if (!stdin.isTTY) {
-      let buf = ''
-      stdin.setEncoding('utf8')
-      stdin.on('data', (c) => (buf += c))
-      stdin.on('end', () => resolve(buf.split('\n')[0] ?? ''))
-      return
-    }
-    stdin.setRawMode(true)
-    stdin.resume()
-    stdin.setEncoding('utf8')
-    let value = ''
-    // вставка из менеджера паролей приходит одним куском — разбираем по символам
-    const onData = (chunk: string) => {
-      for (const ch of chunk) {
-        if (ch === '\r' || ch === '\n') {
-          stdin.setRawMode(false)
-          stdin.pause()
-          stdin.off('data', onData)
-          stdout.write('\n')
-          resolve(value)
-          return
-        } else if (ch === '\u0003') {
-          process.exit(130)
-        } else if (ch === '\u007f') {
-          value = value.slice(0, -1)
-        } else {
-          value += ch
-        }
-      }
-    }
-    stdin.on('data', onData)
-  })
-}
+import { ask } from './ask.ts'
 
 let args
 try {

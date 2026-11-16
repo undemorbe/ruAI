@@ -1,18 +1,23 @@
 # /etc/systemd/system/ruai-admin.service
 [Unit]
 Description=ruAI admin API (127.0.0.1:8787)
-After=network-online.target
+After=network-online.target ruai-api.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=ruai-admin
 Group=ruai-admin
+# доступ к базе сайта /var/lib/ruai (отчёты, настройки, действия с пользователями)
+SupplementaryGroups=ruai-data
 WorkingDirectory=/opt/ruai/server
 # секреты: chmod 600, root:root — systemd читает файл до сброса прав
 EnvironmentFile=/etc/ruai-admin.env
 Environment=NODE_ENV=production
-ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning src/main.ts
+# база сайта; если её ещё нет (API не настроен) — отчёты недоступны (501)
+Environment=RUAI_DB=/var/lib/ruai/ruai.db
+Environment=RUAI_IMAGES_DIR=/var/lib/ruai/images
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --import ./src/register.ts src/main.ts
 Restart=on-failure
 RestartSec=3
 
@@ -21,7 +26,9 @@ StateDirectory=ruai-admin
 StateDirectoryMode=0700
 LogsDirectory=ruai-admin
 LogsDirectoryMode=0750
-UMask=0077
+ReadWritePaths=-/var/lib/ruai
+# файлы базы, созданные админкой (журнал WAL), должны оставаться доступны API — группа ruai-data
+UMask=0007
 
 # --- изоляция ---
 NoNewPrivileges=yes

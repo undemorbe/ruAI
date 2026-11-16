@@ -24,7 +24,7 @@ export interface Draft {
   generate?: boolean
 }
 
-const LIMIT_CODES = new Set<string>(['no_subscription', 'daily_limit', 'total_limit', 'budget', 'rate_limit', 'busy', 'too_long', 'media_required', 'generation_limit', 'generation_disabled', 'bad_image'])
+const LIMIT_CODES = new Set<string>(['auth_required', 'no_subscription', 'daily_limit', 'total_limit', 'budget', 'rate_limit', 'busy', 'too_long', 'media_required', 'generation_limit', 'generation_disabled', 'bad_image', 'model_off'])
 
 export const useChatStore = defineStore('chat', () => {
   const user = useUserStore()

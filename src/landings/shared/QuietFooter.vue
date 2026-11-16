@@ -1,12 +1,20 @@
+<script setup lang="ts">
+import { OPERATOR } from '@/content/legal/operator'
+</script>
+
 <template>
   <footer class="qf">
     <span class="qf__what">ChatGPT — нейросеть без VPN</span>
     <nav class="qf__links" aria-label="Подвал">
       <RouterLink to="/chat">Чат</RouterLink>
       <RouterLink to="/pricing">Тарифы</RouterLink>
-      <a href="mailto:support@ruai.example">Поддержка</a>
+      <RouterLink to="/payment">Оплата в рублях</RouterLink>
+      <RouterLink to="/faq">Вопросы</RouterLink>
+      <RouterLink :to="{ name: 'legal' }">Документы</RouterLink>
+      <a :href="`mailto:${OPERATOR.email}`">Поддержка</a>
     </nav>
-    <span class="qf__legal">© {{ new Date().getFullYear() }} · <a href="#" @click.prevent>Конфиденциальность</a><br />Независимый сервис, не связан с OpenAI. ChatGPT — товарный знак OpenAI.</span>
+    <span class="qf__legal">© {{ new Date().getFullYear() }} · <RouterLink :to="{ name: 'legal', params: { doc: 'privacy' } }">Конфиденциальность</RouterLink> ·
+      <RouterLink :to="{ name: 'legal', params: { doc: 'terms' } }">Условия</RouterLink><br />Независимый сервис, не связан с OpenAI. ChatGPT — товарный знак OpenAI.</span>
   </footer>
 </template>
 
@@ -22,7 +30,9 @@
 }
 .qf__links {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 24px;
 }
 .qf a {
   color: var(--ink);
@@ -46,6 +56,7 @@
   .qf__links {
     gap: 8px 20px;
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
   .qf a {
     display: inline-flex;

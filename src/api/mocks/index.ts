@@ -3,10 +3,16 @@ import { CONTINUE_PROMPT, LIMITS, UPLOAD } from '@/config/app'
 import { storage } from '@/lib/storage'
 import { sleep, uid } from '@/lib/id'
 import { buildContext, estimateTokens, freshUsage, limitMessage, nextMskMidnight, rateWait } from '@/lib/limits'
+import { LEGAL_VERSION } from '@/content/legal/operator'
+import { isEmail, loginError, normalizeEmail, normalizeLogin, passwordError } from '@/lib/auth'
 import { ApiError } from '../http'
 import type { AuthService, BillingService, ChatService } from '../services/contracts'
 import type {
   AdminSettings,
+  Challenge,
+  CheckoutConsent,
+  RegisterConsent,
+  Session,
   ChatSummary,
   ImageRef,
   LimitCode,
@@ -34,6 +40,7 @@ export const K = {
   ledger: 'ruai.mock.ledger',
   images: 'ruai.mock.images',
   settings: 'ruai.mock.admin.settings',
+  accounts: 'ruai.mock.accounts',
 }
 
 /**
@@ -74,7 +81,7 @@ export interface Ledger {
 }
 const loadLedger = () => storage.get<Ledger | null>(K.ledger, null)
 
-const guest = (): User => ({ id: 'guest', email: null, name: 'Гость', isGuest: true, subscription: null })
+const guest = (): User => ({ id: 'guest', login: null, email: null, name: 'Гость', isGuest: true, telegram: false, tgEnabled: true, subscription: null })
 const loadUser = () => storage.get<User>(K.user, guest())
 
 export function newSubscription(planId: PlanId, tier: PlanTier = 'text', now = new Date(), settings = loadSettings()): Subscription {
@@ -109,10 +116,75 @@ function withSettings(sub: Subscription, s: AdminSettings): Subscription {
   return sub
 }
 
+/** Код подтверждения входа в моке всегда один: подсказка на экране входа в режиме моков. */
+export const MOCK_CODE = '000000'
+/** Через сколько мок-«бот» подтверждает привязку, вход и отвязку. */
+export const MOCK_TG_DELAY = 2000
+
+interface MockAccount {
+  id: string
+  login: string
+  /** sha256 пароля: даже в демо пароль не лежит в localStorage открытым текстом. */
+  pw: string
+  telegram: boolean
+  email: string | null
+  consent: (RegisterConsent | CheckoutConsent) & { at: string }
+}
+const loadAccounts = () => storage.get<Record<string, MockAccount>>(K.accounts, {})
+const saveAccount = (a: MockAccount) => storage.set(K.accounts, { ...loadAccounts(), [a.login]: a })
+/** Открытые заявки 2FA: в памяти вкладки, как секрет заявки у настоящего сервера. */
+const pending = new Map<string, { login: string; approved: boolean; expires: number }>()
+
+async function digest(pw: string) {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`ruai-mock:${pw}`)))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+const ttl = (ms: number) => new Date(Date.now() + ms).toISOString()
+const secret = () => uid('').replace(/[^\w-]/g, '').padEnd(22, 'x').slice(0, 22)
+
+export const registerConsentOk = (c?: Partial<RegisterConsent>): c is RegisterConsent =>
+  !!c && c.version === LEGAL_VERSION && c.terms === true && c.personalData === true
+
+export const checkoutConsentOk = (c: Partial<CheckoutConsent> | undefined): c is CheckoutConsent =>
+  !!c && c.version === LEGAL_VERSION && c.terms === true && c.recurring === true
+
+/** Текущий аккаунт мока (по сохранённому пользователю). */
+const current = (): MockAccount | null => {
+  const u = loadUser()
+  return u.isGuest || !u.login ? null : (loadAccounts()[u.login] ?? null)
+}
+
+function signIn(a: MockAccount): Session {
+  const prev = loadUser()
+  const user: User = {
+    id: a.id,
+    login: a.login,
+    email: a.email,
+    name: a.login,
+    isGuest: false,
+    telegram: a.telegram,
+    tgEnabled: true,
+    // тот же аккаунт: подписка сохраняется; другой: чистый пользователь
+    subscription: !prev.isGuest && prev.id === a.id ? prev.subscription : null,
+  }
+  storage.set(K.user, user)
+  return { user, token: 'mock-token' }
+}
+
+const needAccount = () => {
+  const a = current()
+  if (!a) throw new ApiError('Нужно войти', 401, 'auth')
+  return a
+}
+
 export const mockAuth: AuthService = {
   async me() {
     await sleep(120)
-    const user = loadUser()
+    // пользователь из старого мока (вход по email) входит заново
+    if (!loadUser().isGuest && !loadUser().login) storage.remove(K.user)
+    // привязку Telegram «бот» мока делает в фоне: флаг берём из аккаунта
+    const a = current()
+    const user = a ? { ...loadUser(), telegram: a.telegram, email: a.email } : loadUser()
     // суточный сброс и настройки админки видны сразу, даже без нового запроса
     if (user.subscription) {
       user.subscription.tier ??= 'text'
@@ -121,15 +193,80 @@ export const mockAuth: AuthService = {
     }
     return user
   },
-  async requestCode() {
-    await sleep(400)
+  async register(rawLogin, password, consent) {
+    await sleep(300)
+    const login = normalizeLogin(rawLogin)
+    const le = loginError(login)
+    if (le) throw new ApiError(le, 400, 'bad_login')
+    const pe = passwordError(password, login)
+    if (pe) throw new ApiError(pe, 400, 'weak_password')
+    if (!registerConsentOk(consent)) throw new ApiError('Обновите страницу и примите документы заново', 422, 'consent')
+    if (loadAccounts()[login]) throw new ApiError('Этот логин занят', 409, 'login_taken')
+    const a: MockAccount = { id: uid('u_'), login, pw: await digest(password), telegram: false, email: null, consent: { ...consent, at: new Date().toISOString() } }
+    saveAccount(a)
+    return signIn(a)
   },
-  async verifyCode(email) {
-    await sleep(400)
-    const prev = loadUser()
-    const user: User = { ...prev, id: prev.isGuest ? uid('u_') : prev.id, email, name: email.split('@')[0] ?? email, isGuest: false }
-    storage.set(K.user, user)
-    return { user, token: 'mock-token' }
+  async login(rawLogin, password) {
+    await sleep(300)
+    const a = loadAccounts()[normalizeLogin(rawLogin)]
+    if (!a || a.pw !== (await digest(password))) throw new ApiError('Неверный логин или пароль', 401, 'bad_credentials')
+    if (!a.telegram) return signIn(a)
+    const id = secret()
+    pending.set(id, { login: a.login, approved: false, expires: Date.now() + 5 * 60_000 })
+    setTimeout(() => {
+      const p = pending.get(id)
+      if (p) p.approved = true
+    }, MOCK_TG_DELAY)
+    return { challenge: id, expiresAt: ttl(5 * 60_000), sent: true } satisfies Challenge
+  },
+  async challenge(id, code) {
+    await sleep(150)
+    const p = pending.get(id)
+    if (!p || p.expires < Date.now()) throw new ApiError('Запрос на вход устарел. Войдите ещё раз.', 410, 'challenge_gone')
+    if (code !== undefined && code !== MOCK_CODE) throw new ApiError('Неверный код', 400, 'bad_code')
+    if (code === undefined && !p.approved) return { status: 'pending' }
+    pending.delete(id)
+    return signIn(loadAccounts()[p.login]!)
+  },
+  async changePassword(cur, password) {
+    await sleep(300)
+    const a = needAccount()
+    if (a.pw !== (await digest(cur))) throw new ApiError('Текущий пароль неверный', 401, 'bad_credentials')
+    const pe = passwordError(password, a.login)
+    if (pe) throw new ApiError(pe, 400, 'weak_password')
+    saveAccount({ ...a, pw: await digest(password) })
+  },
+  async requestReset() {
+    // ответ одинаков для любого логина, как на сервере; ссылку «бот» мока не шлёт
+    await sleep(300)
+  },
+  async confirmReset(token, password) {
+    await sleep(300)
+    // в моке ссылка вида #mock-<логин>
+    const a = loadAccounts()[token.replace(/^mock-/, '')]
+    if (!a) throw new ApiError('Ссылка устарела. Запросите новую.', 410, 'reset_gone')
+    const pe = passwordError(password, a.login)
+    if (pe) throw new ApiError(pe, 400, 'weak_password')
+    saveAccount({ ...a, pw: await digest(password) })
+    storage.remove(K.user)
+  },
+  async linkTelegram() {
+    await sleep(200)
+    const a = needAccount()
+    if (a.telegram) throw new ApiError('Telegram уже подключён', 409, 'tg_linked')
+    setTimeout(() => saveAccount({ ...loadAccounts()[a.login]!, telegram: true }), MOCK_TG_DELAY)
+    return { url: 'https://t.me/ruchatgpt_auth_bot?start=mock', expiresAt: ttl(10 * 60_000) }
+  },
+  async unlinkTelegram() {
+    await sleep(200)
+    const a = needAccount()
+    if (!a.telegram) throw new ApiError('Telegram не подключён', 409, 'no_tg')
+    setTimeout(() => {
+      saveAccount({ ...loadAccounts()[a.login]!, telegram: false })
+      // как на сервере: после отвязки все сессии закрыты
+      storage.remove(K.user)
+    }, MOCK_TG_DELAY)
+    return { challenge: secret(), expiresAt: ttl(10 * 60_000), sent: true }
   },
   async logout() {
     storage.remove(K.user)
@@ -144,6 +281,7 @@ function loadMsgs() {
 }
 
 const STATUS: Record<LimitCode, number> = {
+  auth_required: 401,
   no_subscription: 402,
   total_limit: 402,
   budget: 402,
@@ -156,6 +294,7 @@ const STATUS: Record<LimitCode, number> = {
   too_long: 413,
   bad_image: 415,
   upstream: 502,
+  model_off: 503,
 }
 const refuse = (code: LimitCode, retryAfter?: number) =>
   new ApiError(limitMessage(code, retryAfter), STATUS[code], code, retryAfter)
@@ -224,6 +363,7 @@ export const mockChat: ChatService = {
     return loadMsgs()[chatId] ?? []
   },
   async upload(file) {
+    if (loadUser().isGuest) throw refuse('auth_required')
     const s = activeSub()
     if (!s) throw refuse('no_subscription')
     if (s.sub.tier !== 'media') throw refuse('media_required')
@@ -243,6 +383,7 @@ export const mockChat: ChatService = {
     const photos = payload.images ?? []
 
     // ---- проверки до вызова модели (порядок как на сервере) ----
+    if (loadUser().isGuest) throw refuse('auth_required')
     if (!s) throw refuse('no_subscription')
     const { user, sub } = s
     sub.usage = freshUsage(sub.usage, now)
@@ -386,6 +527,13 @@ export const mockBilling: BillingService = {
   async checkout(req) {
     await sleep(700)
     if (!PRICES[req.tier]?.[req.planId]) throw new Error('Тариф не найден')
+    // оплата только из аккаунта, как на сервере
+    if (loadUser().isGuest) throw refuse('auth_required')
+    if (!checkoutConsentOk(req.consent)) throw new ApiError('Нужно принять условия оплаты и автопродления', 422, 'consent_required')
+    const email = normalizeEmail(req.email ?? '')
+    if (!isEmail(email)) throw new ApiError('Введите корректный email для чека', 400, 'bad_email')
+    const acc = current()
+    if (acc) saveAccount({ ...acc, email })
     const plan = getPlan(req.tier, req.planId)
     const paymentId = uid('pay_')
     const payments = storage.get<Record<string, PaymentInfo>>(K.pay, {})
@@ -400,14 +548,7 @@ export const mockBilling: BillingService = {
     const old = prev.subscription && freshUsage(prev.subscription.usage, new Date())
     if (old) sub.usage.dailyUsed = Math.min(old.dailyUsed, sub.usage.dailyLimit)
     storage.set(K.ledger, newLedger(plan.id, plan.tier, settings))
-    storage.set(K.user, {
-      ...prev,
-      id: prev.isGuest ? uid('u_') : prev.id,
-      email: req.email,
-      name: prev.isGuest ? (req.email.split('@')[0] ?? req.email) : prev.name,
-      isGuest: false,
-      subscription: sub,
-    } satisfies User)
+    storage.set(K.user, { ...prev, email, subscription: sub } satisfies User)
 
     // Real backend returns the provider's hosted payment page URL.
     return { paymentId, confirmationUrl: `${import.meta.env.BASE_URL}payment/result?paymentId=${paymentId}` }

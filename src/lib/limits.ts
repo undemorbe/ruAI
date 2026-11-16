@@ -70,6 +70,8 @@ function waitText(sec: number): string {
 /** Понятный текст отказа для пользователя. */
 export function limitMessage(code: LimitCode | undefined, retryAfter?: number): string {
   switch (code) {
+    case 'auth_required':
+      return 'Войдите или зарегистрируйтесь, чтобы отправлять запросы. Регистрация по email занимает минуту.'
     case 'no_subscription':
       return 'Чтобы отправлять запросы, оформите подписку. История чатов сохранится.'
     case 'daily_limit':
@@ -92,6 +94,8 @@ export function limitMessage(code: LimitCode | undefined, retryAfter?: number): 
       return 'Генерация изображений временно недоступна. Текстом и анализом фото можно пользоваться.'
     case 'bad_image':
       return 'Не получилось загрузить файл. Подойдут JPG, PNG, WebP или HEIC до 10 МБ.'
+    case 'model_off':
+      return 'Ответы модели временно недоступны. Попробуйте позже, история чатов сохранится.'
     case 'upstream':
       return 'Модель не ответила. Попробуйте ещё раз — запрос не списан.'
     default:

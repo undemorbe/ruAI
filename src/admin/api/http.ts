@@ -1,4 +1,5 @@
 import type { AdminService } from './contract'
+import type { DateRange } from './types'
 
 /** Ошибка API админки (сообщение уже на русском). */
 export class AdminError extends Error {
@@ -35,6 +36,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T
 }
 
+const qs = (r: DateRange) => new URLSearchParams({ from: r.from, to: r.to })
 const get = <T>(p: string) => call<T>(p)
 const send = <T>(p: string, method: string, body?: unknown) => call<T>(p, { method, body: body === undefined ? undefined : JSON.stringify(body) })
 
@@ -49,13 +51,21 @@ export const httpAdmin: AdminService = {
   },
   login: (input) => send('login', 'POST', input),
   logout: () => send('logout', 'POST'),
-  overview: (d) => get(`reports/overview?days=${d}`),
-  payments: (d) => get(`reports/payments?days=${d}`),
-  api: (d) => get(`reports/api?days=${d}`),
-  images: (d) => get(`reports/images?days=${d}`),
-  users: (q) => get(`users?${new URLSearchParams({ q: q.q ?? '', sort: q.sort ?? 'registered', page: String(q.page ?? 1) })}`),
-  finance: (d) => get(`reports/finance?days=${d}`),
+  overview: (r) => get(`reports/overview?${qs(r)}`),
+  analytics: (r) => get(`reports/analytics?${qs(r)}`),
+  payments: (r) => get(`reports/payments?${qs(r)}`),
+  api: (r) => get(`reports/api?${qs(r)}`),
+  images: (r) => get(`reports/images?${qs(r)}`),
+  users: (q) => get(`users?${new URLSearchParams({ q: q.q ?? '', sort: q.sort ?? 'registered', filter: q.filter ?? 'all', page: String(q.page ?? 1) })}`),
+  finance: (r) => get(`reports/finance?${qs(r)}`),
   settings: () => get('settings'),
   saveSettings: (s) => send('settings', 'PUT', s),
   audit: () => get('audit'),
+  user: (id) => get(`users/${encodeURIComponent(id)}`),
+  editSubscription: (id, edit) => send(`users/${encodeURIComponent(id)}/subscription`, 'POST', edit),
+  editUser: (id, edit) => send(`users/${encodeURIComponent(id)}/profile`, 'POST', edit),
+  logoutUser: (id) => send(`users/${encodeURIComponent(id)}/logout`, 'POST'),
+  grant: (id, tier, planId) => send(`users/${encodeURIComponent(id)}/grant`, 'POST', { tier, planId }),
+  setBlocked: (id, blocked) => send(`users/${encodeURIComponent(id)}/block`, 'POST', { blocked }),
+  removeUser: (id, login) => send(`users/${encodeURIComponent(id)}/delete`, 'POST', { login }),
 }

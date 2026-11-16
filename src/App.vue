@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 
 const user = useUserStore()
-onMounted(() => user.fetchMe())
+onMounted(() => user.ensure())
 </script>
 
 <template>

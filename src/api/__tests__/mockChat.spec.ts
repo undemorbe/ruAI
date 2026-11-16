@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { LEGAL_VERSION } from '@/content/legal/operator'
 import { ApiError } from '../http'
 import type { ChatStreamEvent, LimitCode, PlanId, PlanTier, SendMessagePayload } from '../types'
 import { K, mockBilling, mockChat, newSubscription } from '../mocks'
@@ -8,7 +9,7 @@ const USER_KEY = 'ruai.mock.user'
 function subscribe(planId: PlanId = 'week', patch: Partial<ReturnType<typeof newSubscription>['usage']> = {}, tier: PlanTier = 'text') {
   const sub = newSubscription(planId, tier)
   Object.assign(sub.usage, patch)
-  localStorage.setItem(USER_KEY, JSON.stringify({ id: 'u1', email: 'a@b.ru', name: 'a', isGuest: false, subscription: sub }))
+  localStorage.setItem(USER_KEY, JSON.stringify({ id: 'u1', login: 'aaa', email: 'a@b.ru', name: 'aaa', isGuest: false, telegram: false, tgEnabled: true, subscription: sub }))
 }
 
 async function collect(content: string, signal?: AbortSignal, extra: Partial<SendMessagePayload> = {}) {
@@ -86,7 +87,10 @@ describe('mock chat stream', () => {
 describe('mock limits', () => {
   beforeEach(() => localStorage.clear())
 
-  it('refuses without a subscription', async () => {
+  it('guest must register first; signed-in user without a plan needs a subscription', async () => {
+    expect(await refusal()).toBe('auth_required')
+    await expect(mockChat.upload(new File(['x'], 'a.png', { type: 'image/png' }))).rejects.toMatchObject({ code: 'auth_required', status: 401 })
+    localStorage.setItem(USER_KEY, JSON.stringify({ id: 'u1', login: 'aaa', email: 'a@b.ru', name: 'aaa', isGuest: false, telegram: false, tgEnabled: true, subscription: null }))
     expect(await refusal()).toBe('no_subscription')
   })
 
@@ -125,7 +129,7 @@ describe('mock limits', () => {
 
   it('payment opens a new period with the total counter reset', async () => {
     subscribe('week', { totalUsed: 500, dailyUsed: 40 })
-    await mockBilling.checkout({ planId: 'month', tier: 'media', email: 'a@b.ru', method: 'card' })
+    await mockBilling.checkout({ planId: 'month', tier: 'media', method: 'card', email: 'a@b.ru', consent: { version: LEGAL_VERSION, terms: true, recurring: true } })
     const sub = JSON.parse(localStorage.getItem(USER_KEY)!).subscription
     expect(sub.planId).toBe('month')
     expect(sub.tier).toBe('media')

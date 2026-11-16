@@ -188,7 +188,7 @@ if email is None:
 
       <!-- CTA: a plain sentence, one action -->
       <section class="end" aria-labelledby="end-h">
-        <h2 id="end-h" class="end__s">Задайте первый вопрос сейчас — это бесплатно и без регистрации.</h2>
+        <h2 id="end-h" class="end__s">Задайте первый вопрос: регистрация по email занимает минуту.</h2>
         <div class="end__act">
           <RouterLink to="/chat" class="btn">Открыть чат</RouterLink>
           <RouterLink to="/pricing" class="end__link">Тарифы</RouterLink>

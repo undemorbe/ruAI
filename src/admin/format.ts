@@ -5,7 +5,7 @@ export const usd = (n: number, digits = 2) =>
   `$${n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`
 export const pct = (n: number) => `${n.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} %`
 export const date = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
+  iso ? new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'
 export const dateTime = (iso: string) =>
   new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 /** Компактно: 12,4 тыс., 3,1 млн */

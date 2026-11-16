@@ -11,14 +11,17 @@ export interface ModelOption {
 /**
  * Модели по тарифам. Запросы идут через OpenRouter, ключ — только на сервере;
  * модель выбирает сервер по тарифу подписки.
- * `name` — то, что видит пользователь. У текстового тарифа модель не называем.
+ * `name` - то, что видит пользователь (чат, тарифы, оформление); главная страница пишет просто «ChatGPT».
  */
+export const MODEL_NAME = 'ChatGPT-6.1 Astra'
+
 export const MODELS = {
-  text: { id: 'openai/gpt-oss-20b', name: 'ChatGPT', hint: 'Тексты, учёба, код' },
-  // Точный id GPT-5.6 Luna и модель генерации сверить с каталогом OpenRouter тестовым запросом.
-  media: { id: 'openai/gpt-5.6-luna', name: 'GPT-5.6 Luna', hint: 'Тексты, анализ фото и картинки' },
+  text: { id: 'openai/gpt-oss-20b', name: MODEL_NAME, hint: 'Тексты, учёба, код' },
+  // id сверены с каталогом OpenRouter (GET /api/v1/models) 16.11.2026.
+  media: { id: 'openai/gpt-5.6-luna', name: MODEL_NAME, hint: 'Тексты, анализ фото и картинки' },
 } satisfies Record<'text' | 'media', ModelOption>
-export const IMAGE_MODEL_ID = 'openai/gpt-5.6-luna-image'
+/** Генерация и редактирование картинок (~$0.04 за изображение; фактическую цену присылает OpenRouter). */
+export const IMAGE_MODEL_ID = 'google/gemini-2.5-flash-image'
 
 /** Загрузка фото: форматы и размер (проверяет и сервер). */
 export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif' }

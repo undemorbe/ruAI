@@ -6,7 +6,7 @@ import Panel from '../ui/Panel.vue'
 import Stat from '../ui/Stat.vue'
 import { toLimit, useSettings } from '../useSettings'
 
-const { data: r, error } = useReport((d) => adminApi.images(d))
+const { data: r, error } = useReport((x) => adminApi.images(x))
 const st = useSettings()
 const PLANS: PlanId[] = ['week', 'month', 'quarter']
 </script>
@@ -42,7 +42,7 @@ const PLANS: PlanId[] = ['week', 'month', 'quarter']
             <input v-model="st.draft.value.generationEnabled" type="checkbox" role="switch" />
             <span>
               <strong>{{ st.draft.value.generationEnabled ? 'Генерация включена' : 'Генерация выключена' }}</strong>
-              <small class="muted">Выключение не трогает текст и анализ фото — только создание картинок.</small>
+              <small class="muted">Выключение не трогает текст и анализ фото - только создание картинок.</small>
             </span>
           </label>
           <fieldset class="gc__limits" :disabled="!st.draft.value.generationEnabled">
@@ -60,7 +60,7 @@ const PLANS: PlanId[] = ['week', 'month', 'quarter']
                 @input="st.draft.value!.generationLimits[id] = toLimit(($event.target as HTMLInputElement).value)"
               />
             </label>
-            <small class="muted">Пусто — отдельного лимита нет, генерации считаются в общих запросах и бюджете. Новое значение действует на новые и продлённые подписки.</small>
+            <small class="muted">Пусто - отдельного лимита нет, генерации считаются в общих запросах и бюджете. Новое значение действует на новые и продлённые подписки.</small>
           </fieldset>
           <p v-if="st.error.value" class="bad">{{ st.error.value }}</p>
           <div class="gc__act">
