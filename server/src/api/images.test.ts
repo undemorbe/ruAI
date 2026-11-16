@@ -155,11 +155,13 @@ test('анализ фото: картинка уходит в модель и о
   const t = setup()
   const userId = await t.register()
   grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
+  const settings = readSettings(t.db)
+  writeSettings(t.db, { ...settings, models: { ...settings.models, media: 'm/custom-media' } })
   const ref = (await upload(t, jpeg())).json() as { id: string }
   const r = await t.req('POST', '/api/chats/messages', { chatId: null, content: '', images: [ref.id] })
   assert.equal(r.statusCode, 200)
   const call = t.llm.calls[0]!
-  assert.equal(call.model, 'm/media')
+  assert.equal(call.model, 'm/custom-media')
   const last = call.messages.at(-1)!
   assert.ok(Array.isArray(last.content))
   assert.match(JSON.stringify(last.content), /data:image\/jpeg;base64,/)
@@ -189,6 +191,8 @@ test('генерация: картинка от инструмента пров�
   const t = setup()
   const userId = await t.register()
   grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
+  const settings = readSettings(t.db)
+  writeSettings(t.db, { ...settings, models: { text: 'm/custom-text', media: 'm/custom-media', image: 'm/custom-image' } })
   t.llm.agent = [
     { type: 'image', data: png(512, 512) },
     { type: 'image', data: png(64, 64) },
@@ -207,8 +211,8 @@ test('генерация: картинка от инструмента пров�
   assert.equal(done.message.images[0]!.width, 512)
   assert.equal(done.usage.generationsUsed, 1)
   const call = t.llm.calls[0]!
-  assert.equal(call.model, 'm/media', 'просьбу обрабатывает модель чата')
-  assert.deepEqual(call.imageTool, { model: 'm/image' }, 'рисует модель картинок через инструмент')
+  assert.equal(call.model, 'm/custom-media', 'просьбу обрабатывает модель чата тарифа с фото')
+  assert.deepEqual(call.imageTool, { model: 'm/custom-image' }, 'рисует отдельная модель инструмента')
   assert.equal(call.forceImage, true)
 
   t.clock.t += 61_000
@@ -234,7 +238,7 @@ test('«Нарисуй осла» обычным сообщением: моде�
   const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'Нарисуй осла' })).body)
   assert.deepEqual(
     ev.map((e) => e.type),
-    ['chat', 'delta', 'image', 'delta', 'done'],
+    ['chat', 'delta', 'image', 'delta', 'delta', 'done'],
   )
   const done = ev.at(-1) as { message: { content: string; images: unknown[] }; usage: { generationsUsed: number; totalUsed: number } }
   assert.equal(done.message.content, 'Вот осёл:', 'data:URL из текста вырезан')

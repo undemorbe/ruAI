@@ -1,5 +1,5 @@
 import { PLAN_TABLE, PRICES, getPlan, getPlans } from '@/content/plans'
-import { CONTINUE_PROMPT, LIMITS, UPLOAD } from '@/config/app'
+import { CONTINUE_PROMPT, IMAGE_MODEL_ID, LIMITS, MODELS, UPLOAD } from '@/config/app'
 import { storage } from '@/lib/storage'
 import { sleep, uid } from '@/lib/id'
 import { isImageFile, prepareUpload } from '@/lib/image'
@@ -61,6 +61,7 @@ export const COST = {
 
 export const defaultSettings = (): AdminSettings => ({
   generationEnabled: true,
+  models: { text: MODELS.text.id, media: MODELS.media.id, image: IMAGE_MODEL_ID },
   // генерации укладываются в бюджет подписки (~$0.045 за картинку вместе с работой модели чата)
   generationLimits: { week: 50, month: 120, quarter: 250 },
   // по умолчанию 40% цены подписки; меняется в админке

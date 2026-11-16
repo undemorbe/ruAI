@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ImageRef } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
-import { MODEL_NAME, UPLOAD } from '@/config/app'
+import { APP_NAME, MODEL_NAME, UPLOAD } from '@/config/app'
 import { isImageFile } from '@/lib/image'
 import type { Draft } from '@/stores/chat'
 
@@ -23,9 +23,12 @@ const images = ref<ImageRef[]>([])
 const uploading = ref(0)
 const generate = ref(false)
 const dragging = ref(false)
+const inputFocused = ref(false)
+const animatedPlaceholder = ref('')
 /** Почему часть файлов не прикрепилась (не фото, больше лимита). */
 const warn = ref('')
 let warnTimer: ReturnType<typeof setTimeout> | undefined
+let placeholderTimer: ReturnType<typeof setTimeout> | undefined
 function say(msg: string) {
   warn.value = msg
   clearTimeout(warnTimer)
@@ -33,6 +36,41 @@ function say(msg: string) {
 }
 const el = ref<HTMLTextAreaElement | null>(null)
 const fileIn = ref<HTMLInputElement | null>(null)
+const promptPlaceholder = computed(() => props.placeholder ?? `Спросите ${props.canMedia ? MODEL_NAME : APP_NAME}`)
+
+function stopPlaceholderAnimation() {
+  if (placeholderTimer !== undefined) clearTimeout(placeholderTimer)
+  placeholderTimer = undefined
+}
+
+function updatePlaceholder() {
+  stopPlaceholderAnimation()
+  const fullText = generate.value ? 'Опишите изображение' : promptPlaceholder.value
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+  if (generate.value || text.value || inputFocused.value || reducedMotion) {
+    animatedPlaceholder.value = fullText
+    return
+  }
+
+  animatedPlaceholder.value = ''
+  let visibleCharacters = 0
+  const typeNextCharacter = () => {
+    if (text.value || inputFocused.value || generate.value) {
+      animatedPlaceholder.value = fullText
+      placeholderTimer = undefined
+      return
+    }
+
+    visibleCharacters++
+    animatedPlaceholder.value = fullText.slice(0, visibleCharacters)
+    if (visibleCharacters < fullText.length) {
+      placeholderTimer = setTimeout(typeNextCharacter, 45)
+    } else {
+      placeholderTimer = undefined
+    }
+  }
+  placeholderTimer = setTimeout(typeNextCharacter, 45)
+}
 
 const ready = computed(() => !uploading.value && (!!text.value.trim() || (!!images.value.length && !generate.value)))
 const hint = computed(() => {
@@ -48,6 +86,19 @@ function autosize() {
   t.style.height = `${Math.min(t.scrollHeight, 220)}px`
 }
 watch(text, () => nextTick(autosize))
+watch([text, promptPlaceholder, generate], updatePlaceholder)
+onMounted(updatePlaceholder)
+onBeforeUnmount(stopPlaceholderAnimation)
+
+function onInputFocus() {
+  inputFocused.value = true
+  updatePlaceholder()
+}
+
+function onInputBlur() {
+  inputFocused.value = false
+  updatePlaceholder()
+}
 
 async function addFiles(files: FileList | File[]) {
   if (!props.canMedia) return emit('locked')
@@ -153,9 +204,11 @@ defineExpose({
       v-model="text"
       rows="1"
       class="cmp__input"
-      :placeholder="generate ? 'Опишите изображение' : (placeholder ?? `Спросите ${MODEL_NAME}`)"
+      :placeholder="animatedPlaceholder"
       enterkeyhint="send"
       autocomplete="off"
+      @focus="onInputFocus"
+      @blur="onInputBlur"
       @keydown="onKey"
       @paste="onPaste"
     />
@@ -191,6 +244,11 @@ defineExpose({
 .cmp:focus-within {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
 }
+@media (prefers-color-scheme: dark) {
+  .cmp:focus-within {
+    border-color: var(--ink);
+  }
+}
 .cmp__input {
   display: block;
   width: 100%;
@@ -205,6 +263,7 @@ defineExpose({
 }
 .cmp__input:focus {
   outline: none;
+  box-shadow: none;
 }
 .cmp__input::placeholder {
   color: var(--text-3);

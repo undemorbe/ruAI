@@ -20,15 +20,15 @@ describe('быстрые вопросы', () => {
 
   it('без изображений только текстовые; с изображениями одна «нарисуй» и одна «с фото» не первыми', () => {
     for (let seed = 1; seed <= 200; seed++) {
-      const text = pickSuggestions({ media: false, count: 6, seed })
-      expect(text).toHaveLength(6)
-      expect(new Set(text).size).toBe(6)
+      const text = pickSuggestions({ media: false, count: 4, seed })
+      expect(text).toHaveLength(4)
+      expect(new Set(text).size).toBe(4)
       expect(text.every((s) => s.kind === 'ask' || s.kind === 'fill')).toBe(true)
       expect(text.filter((s) => s.kind === 'fill').length).toBeLessThanOrEqual(1)
 
-      const media = pickSuggestions({ media: true, count: 6, seed })
-      expect(media).toHaveLength(6)
-      expect(new Set(media).size).toBe(6)
+      const media = pickSuggestions({ media: true, count: 4, seed })
+      expect(media).toHaveLength(4)
+      expect(new Set(media).size).toBe(4)
       expect(media.map((s) => s.kind).filter((k) => k === 'draw' || k === 'photo')).toEqual(['draw', 'photo'])
       expect(media[1]!.kind).toBe('draw')
       expect(media[3]!.kind).toBe('photo')
@@ -36,9 +36,9 @@ describe('быстрые вопросы', () => {
   })
 
   it('одна раскладка на seed, а за разные заходы показывается весь пул', () => {
-    expect(pickSuggestions({ media: true, count: 6, seed: 42 })).toEqual(pickSuggestions({ media: true, count: 6, seed: 42 }))
+    expect(pickSuggestions({ media: true, count: 4, seed: 42 })).toEqual(pickSuggestions({ media: true, count: 4, seed: 42 }))
     const seen = new Set<string>()
-    for (let seed = 0; seed < 500; seed++) for (const s of pickSuggestions({ media: true, count: 6, seed })) seen.add(s.text)
+    for (let seed = 0; seed < 500; seed++) for (const s of pickSuggestions({ media: true, count: 4, seed })) seen.add(s.text)
     expect(seen.size).toBe(SUGGESTIONS.length)
     const r = seeded(7)
     for (let i = 0; i < 1000; i++) {

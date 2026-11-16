@@ -159,19 +159,29 @@ describe('admin api', () => {
     const cur = (await app.inject({ url: url('settings'), headers: h })).json()
     const bad = await app.inject({ method: 'PUT', url: url('settings'), headers: h, payload: { ...cur, usdRub: -1 } })
     assert.equal(bad.statusCode, 400)
+    const badModel = await app.inject({ method: 'PUT', url: url('settings'), headers: h, payload: { ...cur, models: { ...cur.models, text: 'not-an-openrouter-id' } } })
+    assert.equal(badModel.statusCode, 400)
     const extra = await app.inject({ method: 'PUT', url: url('settings'), headers: h, payload: { ...cur, admin: true } })
     assert.equal(extra.statusCode, 400)
     const ok = await app.inject({
       method: 'PUT',
       url: url('settings'),
       headers: h,
-      payload: { ...cur, generationEnabled: false, generationLimits: { week: 30, month: null, quarter: null } },
+      payload: {
+        ...cur,
+        generationEnabled: false,
+        generationLimits: { week: 30, month: null, quarter: null },
+        models: { text: 'openai/gpt-oss-20b:free', media: 'openai/gpt-5.6-luna', image: 'openai/gpt-image-2.6-flare' },
+      },
     })
     assert.equal(ok.statusCode, 200)
     assert.equal(ok.json().generationEnabled, false)
+    assert.equal(ok.json().models.text, 'openai/gpt-oss-20b:free')
     const log = (await app.inject({ url: url('audit'), headers: h })).json()
     assert.equal(log[0].action, 'settings')
     assert.match(log[0].detail, /генерация выкл/)
+    assert.match(log[0].detail, /модели OpenRouter/)
+    assert.doesNotMatch(log[0].detail, /openai\//)
   })
 
   it('без демо и без базы отчёты отвечают 501, неизвестные пути — 404', async () => {

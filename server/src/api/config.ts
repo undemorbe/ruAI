@@ -2,7 +2,7 @@
  * Настройки публичного API из окружения (/etc/ruai-api.env, chmod 600, создаёт api-setup.ts).
  * Без обязательных значений сервер не стартует.
  */
-import { IMAGE_MODEL_ID, MODELS } from '@/config/app'
+import { IMAGE_MODEL_ID, isModelId, MODELS } from '@/config/app'
 
 export interface ApiConfig {
   host: string
@@ -64,6 +64,15 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
   const cap = Number(env.API_DAILY_USD_CAP ?? 30)
   if (!(cap > 0 && cap <= 10_000)) errors.push('API_DAILY_USD_CAP: число от 0 до 10000')
 
+  const models = {
+    text: env.MODEL_TEXT?.trim() || MODELS.text.id,
+    media: env.MODEL_MEDIA?.trim() || MODELS.media.id,
+    image: env.MODEL_IMAGE?.trim() || IMAGE_MODEL_ID,
+  }
+  for (const [key, id] of Object.entries(models)) {
+    if (!isModelId(id)) errors.push(`MODEL_${key.toUpperCase()}: неверный ID модели OpenRouter`)
+  }
+
   // FreeKassa необязательна: без ключей сайт работает, оформление оплаты отвечает 503
   const fkId = env.FREEKASSA_MERCHANT_ID?.trim() ?? ''
   const fk1 = env.FREEKASSA_SECRET1?.trim() ?? ''
@@ -88,11 +97,7 @@ export function loadApiConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     imagesDir: `${dataDir}/images`,
     pepper,
     openrouterKey,
-    models: {
-      text: env.MODEL_TEXT?.trim() || MODELS.text.id,
-      media: env.MODEL_MEDIA?.trim() || MODELS.media.id,
-      image: env.MODEL_IMAGE?.trim() || IMAGE_MODEL_ID,
-    },
+    models,
     dailyUsdCap: cap,
     tgToken,
     authLog: env.API_AUTH_LOG?.trim() || '/var/log/ruai-api/auth.log',

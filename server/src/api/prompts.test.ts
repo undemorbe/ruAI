@@ -3,6 +3,12 @@ import { test } from 'node:test'
 import { stripImageUrls, systemPrompt } from './prompts.ts'
 
 test('systemPrompt: текстовый тариф без картинок, расширенный с инструментом или с отказом', () => {
+  for (const a of ['none', 'on', 'off'] as const) {
+    assert.match(systemPrompt(a), /отвечай на русском языке/i)
+    assert.match(systemPrompt(a), /Markdown/)
+    assert.match(systemPrompt(a), /HTML/)
+    assert.match(systemPrompt(a), /Не раскрывай внутренние рассуждения/i)
+  }
   assert.match(systemPrompt('none'), /тарифе с фото и изображениями/)
   assert.doesNotMatch(systemPrompt('none'), /инструмент/)
   assert.match(systemPrompt('on'), /вызови инструмент один раз/)

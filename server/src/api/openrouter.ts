@@ -123,7 +123,7 @@ export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm 
 
   return {
     async *stream({ model, messages, maxTokens, user, signal }) {
-      const res = await post('/chat/completions', { model, messages, stream: true, max_tokens: maxTokens, usage: { include: true }, user }, signal)
+      const res = await post('/chat/completions', { model, messages, stream: true, max_tokens: maxTokens, usage: { include: true }, reasoning: { exclude: true }, user }, signal)
       if (!res.body) throw new LlmError(502, 'openrouter: empty body')
       let finish: string | null = null
       let usage: LlmUsage | null = null

@@ -1,4 +1,5 @@
 import { computed, ref, shallowRef } from 'vue'
+import { isModelId } from '../config/app'
 import { adminApi, type AdminSettings } from './api'
 import { handle } from './state'
 
@@ -22,6 +23,7 @@ export function useSettings() {
     .catch((e) => (error.value = handle(e)))
 
   function invalid(s: AdminSettings): string | null {
+    if (Object.values(s.models).some((id) => !isModelId(id))) return 'Укажите корректный ID модели OpenRouter в формате provider/model'
     const ints = [...Object.values(s.budgetsRub.text), ...Object.values(s.budgetsRub.media)]
     if (ints.some((n) => !Number.isFinite(n) || n < 0)) return 'Бюджет — неотрицательное число'
     if (Object.values(s.generationLimits).some((n) => n !== null && (!Number.isInteger(n) || n < 0))) return 'Лимит генераций — целое число ≥ 0 или пусто'

@@ -20,7 +20,7 @@ test('stream: склейка кусков, комментарии, usage и fini
     seen = { url, init }
     return sse([
       ': OPENROUTER PROCESSING',
-      'data: {"choices":[{"delta":{"content":"При"}}]}',
+      'data: {"choices":[{"delta":{"content":"При","reasoning":"private thought"}}]}',
       'data: {"choices":[{"delta":{"content":"вет"},"finish_reason":"length"}]}',
       'data: {"choices":[],"usage":{"prompt_tokens":12,"completion_tokens":3,"cost":0.0042}}',
       'data: [DONE]',
@@ -39,6 +39,7 @@ test('stream: склейка кусков, комментарии, usage и fini
   const body = JSON.parse(String(s.init.body))
   assert.equal(body.max_tokens, 10)
   assert.deepEqual(body.usage, { include: true })
+  assert.deepEqual(body.reasoning, { exclude: true })
   assert.ok(!String(s.init.body).includes('sk-or-secret'))
 })
 
@@ -100,6 +101,7 @@ test('respond: Responses API с инструментом openrouter:image_genera
   assert.equal(body.tool_choice, 'auto')
   assert.equal(body.max_tool_calls, 1)
   assert.equal(body.max_output_tokens, 100)
+  assert.equal(body.reasoning, undefined)
   assert.deepEqual(body.input, [
     {
       role: 'user',

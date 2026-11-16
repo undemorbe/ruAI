@@ -33,7 +33,7 @@ let stick = true
 // случайная раскладка на каждый заход; «Другие идеи» меняет seed
 const seed = ref(Math.floor(Math.random() * 2 ** 31))
 // подсказки с картинками: тариф с изображениями, гость и без подписки (покажут, что умеет тариф)
-const suggestions = computed(() => pickSuggestions({ media: user.canMedia || !user.isPaid, count: 6, seed: seed.value }))
+const suggestions = computed(() => pickSuggestions({ media: user.canMedia || !user.isPaid, count: 4, seed: seed.value }))
 
 function useSuggestion(s: Suggestion) {
   if (s.kind === 'ask') return send(s.text)

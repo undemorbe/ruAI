@@ -6,6 +6,7 @@
  * закрывается: ok — с фактической стоимостью, refund — без результата (счётчики −1).
  */
 import type { AdminSettings, LimitCode, PlanId, PlanTier, Subscription, Usage } from '@/api/types'
+import type { ApiConfig } from './config.ts'
 import { LIMITS } from '@/config/app'
 import { PLAN_TABLE } from '@/content/plans'
 import { mskDayKey, nextMskMidnight, rateWait } from '@/lib/limits'
@@ -48,6 +49,24 @@ export function readSettings(db: Db): AdminSettings {
 }
 export function writeSettings(db: Db, s: AdminSettings) {
   db.run('INSERT INTO settings(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', 'admin', JSON.stringify(s))
+}
+
+/** Seed model IDs from the API environment for new databases and legacy settings. */
+export function initializeSettings(db: Db, models: ApiConfig['models']) {
+  db.tx(() => {
+    const row = db.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', 'admin')
+    if (!row) {
+      writeSettings(db, { ...defaultAdminSettings(), models })
+      return
+    }
+    let stored: Partial<AdminSettings>
+    try {
+      stored = JSON.parse(row.value) as Partial<AdminSettings>
+    } catch {
+      return
+    }
+    if (!stored.models) writeSettings(db, { ...defaultAdminSettings(), ...stored, models })
+  })
 }
 
 // ---------- подписка ----------

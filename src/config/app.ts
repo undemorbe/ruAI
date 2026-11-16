@@ -8,11 +8,8 @@ export interface ModelOption {
 }
 
 /**
- * Модели. Запросы идут через OpenRouter, ключ только на сервере; модель выбирает сервер по тарифу подписки:
- *   - текстовый тариф: `MODELS.text` (GPT-OSS-20B), только текстовые сообщения;
- *   - расширенный тариф: `MODELS.media` (GPT-5.6 Luna) на все сообщения, включая анализ фото;
- *   - картинки: `IMAGE_MODEL_ID` (GPT Image 2.6 Flare) через серверный инструмент OpenRouter
- *     `openrouter:image_generation`: Luna сама решает по просьбе пользователя, что и когда рисовать.
+ * Модели по умолчанию. Запросы идут через OpenRouter, ключ только на сервере.
+ * Администратор может изменить ID текстовой модели, модели тарифа «Фото» и генератора в настройках.
  * `name` - то, что видит пользователь (чат, тарифы, оформление); главная страница пишет просто «ChatGPT».
  */
 export const MODEL_NAME = 'ChatGPT-6.1 Astra'
@@ -24,6 +21,10 @@ export const MODELS = {
 } satisfies Record<'text' | 'media', ModelOption>
 /** Создание и редактирование картинок (инструмент `openrouter:image_generation`; фактическую цену присылает OpenRouter). */
 export const IMAGE_MODEL_ID = 'openai/gpt-image-2.6-flare'
+/** Формат model ID OpenRouter: provider/model-name, включая суффиксы вроде :free. */
+export const MODEL_ID_PATTERN = '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'
+
+export const isModelId = (id: string) => new RegExp(MODEL_ID_PATTERN).test(id)
 
 /** Загрузка фото: форматы и размер (проверяет и сервер). */
 export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif' }

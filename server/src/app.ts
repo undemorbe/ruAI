@@ -7,6 +7,7 @@
  */
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { AdminSettings, DateRange, PlanId, PlanTier, SubEdit, UserEdit, UsersQuery } from '../../src/admin/api/types.ts'
+import { MODEL_ID_PATTERN } from '../../src/config/app.ts'
 import { checkSubEdit, checkUserEdit, MAX_NOTE } from '../../src/admin/edits.ts'
 import { checkRange, lastDays } from '../../src/admin/range.ts'
 import { AdminAccounts, MIN_PASSWORD } from './accounts.ts'
@@ -18,6 +19,7 @@ import { authLogger, demoRepo, FileStore, type AdminRepo, type SettingsStore } f
 
 const LIMIT = { anyOf: [{ type: 'integer', minimum: 0, maximum: 100_000 }, { type: 'null' }] }
 const BUDGET = { type: 'number', minimum: 0, maximum: 100_000 }
+const MODEL_ID = { type: 'string', minLength: 3, maxLength: 193, pattern: MODEL_ID_PATTERN }
 const plans = (item: object) => ({
   type: 'object',
   additionalProperties: false,
@@ -27,9 +29,15 @@ const plans = (item: object) => ({
 const SETTINGS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['generationEnabled', 'generationLimits', 'budgetsRub', 'usdRub'],
+  required: ['generationEnabled', 'models', 'generationLimits', 'budgetsRub', 'usdRub'],
   properties: {
     generationEnabled: { type: 'boolean' },
+    models: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['text', 'media', 'image'],
+      properties: { text: MODEL_ID, media: MODEL_ID, image: MODEL_ID },
+    },
     generationLimits: plans(LIMIT),
     budgetsRub: { type: 'object', additionalProperties: false, required: ['text', 'media'], properties: { text: plans(BUDGET), media: plans(BUDGET) } },
     usdRub: { type: 'number', exclusiveMinimum: 0, maximum: 1000 },
@@ -462,6 +470,7 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
         if (before.generationEnabled !== req.body.generationEnabled) changes.push(`генерация ${req.body.generationEnabled ? 'вкл' : 'выкл'}`)
         if (JSON.stringify(before.generationLimits) !== JSON.stringify(req.body.generationLimits)) changes.push('лимиты генераций')
         if (JSON.stringify(before.budgetsRub) !== JSON.stringify(req.body.budgetsRub)) changes.push('бюджеты')
+        if (JSON.stringify(before.models) !== JSON.stringify(req.body.models)) changes.push('модели OpenRouter')
         if (before.usdRub !== req.body.usdRub) changes.push(`курс ${req.body.usdRub}`)
         audit(req, 'settings', changes.join(', ') || 'без изменений')
         return settings.settings()

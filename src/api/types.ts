@@ -214,6 +214,8 @@ export interface PaymentInfo {
 export interface AdminSettings {
   /** Глобальный выключатель генерации изображений. */
   generationEnabled: boolean
+  /** ID OpenRouter для текста, анализа фото и инструмента генерации изображений. */
+  models: { text: string; media: string; image: string }
   /** Лимит генераций на период подписки; null — без отдельного лимита. */
   generationLimits: Record<PlanId, number | null>
   /** Внутренний бюджет API на одну подписку, ₽. */

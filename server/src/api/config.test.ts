@@ -23,6 +23,8 @@ test('в проде нельзя с коротким pepper, на внешнем
   assert.throws(() => loadApiConfig({ ...base, HOST: '0.0.0.0' }), /HOST/)
   assert.throws(() => loadApiConfig({ ...base, API_ORIGIN: 'http://ru-chatgpt.com' }), /API_ORIGIN/)
   assert.throws(() => loadApiConfig({ ...base, OPENROUTER_API_KEY: 'bad key; rm -rf' }), /OPENROUTER/)
+  assert.throws(() => loadApiConfig({ ...base, MODEL_TEXT: 'not-an-openrouter-id' }), /MODEL_TEXT/)
+  assert.equal(loadApiConfig({ ...base, MODEL_TEXT: 'openai/gpt-oss-20b:free' }).models.text, 'openai/gpt-oss-20b:free')
   assert.throws(() => loadApiConfig({ ...base, API_DAILY_USD_CAP: '-1' }), /CAP/)
   assert.equal(loadApiConfig({ ...base, LLM_STUB: '1' }).llmStub, false, 'заглушка модели только для localhost')
 })

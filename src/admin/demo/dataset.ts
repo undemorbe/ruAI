@@ -23,6 +23,7 @@ import type {
   UsersPage,
   UsersQuery,
 } from '../api/types'
+import { IMAGE_MODEL_ID, MODELS } from '../../config/app'
 import { bounds, prevRange } from '../range'
 
 /** Цены и лимиты (копия content/plans - сверяется тестом). */
@@ -40,6 +41,7 @@ const DAY = 86_400_000
 
 export const defaultAdminSettings = (): AdminSettings => ({
   generationEnabled: true,
+  models: { text: MODELS.text.id, media: MODELS.media.id, image: IMAGE_MODEL_ID },
   // генерации укладываются в бюджет подписки (~$0.045 за картинку вместе с работой модели чата)
   generationLimits: { week: 50, month: 120, quarter: 250 },
   budgetsRub: {

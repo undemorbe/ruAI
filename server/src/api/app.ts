@@ -19,10 +19,11 @@ import { applyPaymentStatus, attachProviderId, createPendingPayment, disabledPro
 import type { ApiConfig } from './config.ts'
 import { newId, type Db } from './db.ts'
 import { ImageFiles, sanitize } from './images.ts'
-import { Refusal, readSettings, releaseStale, reserve, settle, usageOf, activeSub, type Kind } from './ledger.ts'
+import { initializeSettings, Refusal, readSettings, releaseStale, reserve, settle, usageOf, activeSub, type Kind } from './ledger.ts'
 import type { Llm, LlmUsage, Part } from './openrouter.ts'
 import { stripImageUrls, systemPrompt, type ImageAccess } from './prompts.ts'
 import { assembleMessages, pickContextImages } from './context.ts'
+import { sanitizeVisibleText, VisibleTextStream } from './visibleText.ts'
 import type { TgApi } from './tg/api.ts'
 import { TgBot } from './tg/bot.ts'
 import type { TgNotifier } from './tg/notify.ts'
@@ -168,6 +169,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
   const busy = new Set<string>()
   const uploads = new Window()
 
+  initializeSettings(db, cfg.models)
   releaseStale(db, now(), 0)
 
   const app = Fastify({
@@ -366,7 +368,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           id: m.id,
           chatId: m.chat_id,
           role: m.role,
-          content: m.content,
+          content: sanitizeVisibleText(m.content),
           createdAt: iso(m.created_at),
           status: 'done',
           ...(byMsg.get(m.id) ? { images: byMsg.get(m.id) } : {}),
@@ -484,13 +486,14 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
         // модель не подключена: до резерва, чтобы запрос не списывался
         if (!llm) throw new Refusal('model_off')
 
-        // текстовый тариф: MODELS.text; расширенный: MODELS.media на все сообщения, картинки - её инструментом
+        // Модель чата и инструмента генерации берётся из общих настроек админки.
         const sub0 = activeSub(db, u.id, now())
         const media = sub0?.tier === 'media'
-        const model = media ? cfg.models.media : cfg.models.text
+        const settings = readSettings(db)
+        const model = media ? settings.models.media : settings.models.text
         let access: ImageAccess = 'none'
         if (media && sub0) {
-          const u0 = usageOf(sub0, readSettings(db), now())
+          const u0 = usageOf(sub0, settings, now())
           access = u0.generationEnabled && (u0.generationsLimit === null || u0.generationsUsed < u0.generationsLimit) ? 'on' : 'off'
         }
         const res = reserve(db, {
@@ -544,6 +547,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           let errorCode: string | undefined
           const userTag = sha256(`ruai:${u.id}`).slice(0, 24)
           const tier = res.sub.tier
+          const visibleText = new VisibleTextStream()
 
           try {
             send({ type: 'chat', chat: summary(chat, tier) })
@@ -556,7 +560,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
               .reverse()
               // сообщение только с фото (без текста) остаётся в контексте тарифа с изображениями
               .filter((m) => m.content || (media && m.pics > 0))
-            const ctx = buildContext(history)
+            const ctx = buildContext(history.map((m) => ({ ...m, content: sanitizeVisibleText(m.content) })))
             // текстовая модель картинок не видит: части-картинки только в тарифе с изображениями
             const ctxImages = media
               ? db.all<{ id: string; message_id: string; created_at: number }>(
@@ -614,14 +618,16 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
                   maxTokens: LIMITS.outputTokens,
                   user: userTag,
                   signal: abort.signal,
-                  imageTool: access === 'on' ? { model: cfg.models.image } : null,
+                  imageTool: access === 'on' ? { model: settings.models.image } : null,
                   forceImage: kind === 'image',
                 })
               : llm.stream({ model, messages: [{ role: 'system', content: systemPrompt('none') }, ...messages], maxTokens: LIMITS.outputTokens, user: userTag, signal: abort.signal })
             for await (const ch of chunks) {
               if (ch.type === 'text') {
-                text += ch.text
-                send({ type: 'delta', messageId: replyId, text: ch.text })
+                for (const word of visibleText.push(ch.text)) {
+                  text += word
+                  send({ type: 'delta', messageId: replyId, text: word })
+                }
               } else if (ch.type === 'image') {
                 // одна генерация на сообщение (столько же списывает счётчик)
                 if (!produced.length) saveImage(ch.data)
@@ -629,6 +635,10 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
                 usage = ch.usage
                 finish = ch.finish
               }
+            }
+            for (const word of visibleText.flush()) {
+              text += word
+              send({ type: 'delta', messageId: replyId, text: word })
             }
             text = stripImageUrls(text)
             if (!text && !produced.length) errorCode = kind === 'image' ? 'no_image' : 'empty'

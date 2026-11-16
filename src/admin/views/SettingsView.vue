@@ -15,6 +15,23 @@ const setNum = (e: Event, fn: (n: number) => void) => fn(Number((e.target as HTM
 
 <template>
   <form v-if="st.draft.value" class="stack" @submit.prevent="st.save">
+    <Panel title="Рабочие модели OpenRouter" note="Укажите ID модели из каталога OpenRouter. Изменения применятся к новым запросам после сохранения.">
+      <div class="models">
+        <label>
+          <span>Текстовый тариф</span>
+          <input v-model.trim="st.draft.value.models.text" class="field-sm" type="text" maxlength="193" autocomplete="off" spellcheck="false" aria-label="Модель текстового тарифа" />
+        </label>
+        <label>
+          <span>Тариф «Фото»: анализ фото и чат</span>
+          <input v-model.trim="st.draft.value.models.media" class="field-sm" type="text" maxlength="193" autocomplete="off" spellcheck="false" aria-label="Модель тарифа Фото" />
+        </label>
+        <label>
+          <span>Генерация и редактирование фото</span>
+          <input v-model.trim="st.draft.value.models.image" class="field-sm" type="text" maxlength="193" autocomplete="off" spellcheck="false" aria-label="Модель генерации фото" />
+        </label>
+      </div>
+    </Panel>
+
     <Panel title="Внутренний бюджет подписки" note="максимум расхода OpenRouter на одну подписку; при исчерпании запросы закрываются">
       <div class="scroll-x">
         <table class="tbl">
@@ -75,6 +92,16 @@ const setNum = (e: Event, fn: (n: number) => void) => fn(Number((e.target as HTM
 </template>
 
 <style scoped>
+.models {
+  display: grid;
+  gap: 12px;
+}
+.models label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: 13px;
+}
 .rate {
   display: flex;
   align-items: center;

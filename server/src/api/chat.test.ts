@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { grantSubscription } from './billing.ts'
 import { LlmError } from './openrouter.ts'
 import { setup } from './testkit.ts'
-import { writeSettings, readSettings } from './ledger.ts'
+import { initializeSettings, writeSettings, readSettings } from './ledger.ts'
 
 const send = (t: ReturnType<typeof setup>, body: object) => t.req('POST', '/api/chats/messages', { chatId: null, content: 'Привет', ...body })
 
@@ -54,6 +54,60 @@ test('ответ стримом: chat → delta → done, счётчики и с
     msgs.map((m) => m.role),
     ['user', 'assistant'],
   )
+})
+
+test('текстовая модель запроса берётся из настроек, заданных администратором', async () => {
+  const { t } = await paid()
+  const current = readSettings(t.db)
+  writeSettings(t.db, { ...current, models: { ...current.models, text: 'custom/text-model' } })
+
+  await send(t, {})
+
+  assert.equal(t.llm.calls[0]!.model, 'custom/text-model')
+})
+
+test('размышления не уходят в поток или историю, видимый ответ приходит словами', async () => {
+  const { t } = await paid()
+  t.llm.script = [
+    { type: 'text', text: '<think>Private reasoning' },
+    { type: 'text', text: '</think>Финальный' },
+    { type: 'text', text: ' ответ.' },
+    { type: 'end', finish: 'stop', usage: { tokensIn: 10, tokensOut: 5, costUsd: 0.001 } },
+  ]
+
+  const events = t.events((await send(t, {})).body)
+  const deltas = events.filter((event) => event.type === 'delta').map((event) => (event as { text: string }).text)
+  const done = events.at(-1) as { message: { content: string } }
+
+  assert.deepEqual(deltas, ['Финальный ', 'ответ.'])
+  assert.equal(done.message.content, 'Финальный ответ.')
+  assert.doesNotMatch(JSON.stringify(events), /Private reasoning|<think>/)
+})
+
+test('старые размеченные размышления скрываются из истории и контекста', async () => {
+  const { t } = await paid()
+  const initial = t.events((await send(t, {})).body)
+  const chatId = (initial[0] as { chat: { id: string } }).chat.id
+  t.db.run("UPDATE messages SET content = ? WHERE chat_id = ? AND role = 'assistant'", '<think>Private reasoning</think>Visible answer', chatId)
+
+  const history = (await t.req('GET', `/api/chats/${chatId}/messages`)).json() as { role: string; content: string }[]
+  assert.equal(history.at(-1)!.content, 'Visible answer')
+  assert.doesNotMatch(JSON.stringify(history), /Private reasoning|<think>/)
+
+  t.clock.t += 61_000
+  await t.req('POST', '/api/chats/messages', { chatId, content: 'Continue' })
+  assert.ok(t.llm.calls.at(-1)!.messages.some((message) => message.role === 'assistant' && message.content === 'Visible answer'))
+})
+
+test('модели из API окружения заполняют настройки без ID в старых данных', () => {
+  const t = setup()
+  t.db.run('UPDATE settings SET value = ? WHERE key = ?', JSON.stringify({ generationEnabled: false }), 'admin')
+  const configured = { text: 'env/text-model', media: 'env/media-model', image: 'env/image-model' }
+
+  initializeSettings(t.db, configured)
+
+  assert.deepEqual(readSettings(t.db).models, configured)
+  assert.equal(readSettings(t.db).generationEnabled, false)
 })
 
 test('продолжение чата: в модель уходит история', async () => {
