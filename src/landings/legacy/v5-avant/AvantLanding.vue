@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OPERATOR, tgHandle, tgLink } from '@/content/legal/operator'
 import { ref } from 'vue'
 import { faq, reviews } from '@/content/landing'
 import { getPlans } from '@/content/plans'
@@ -202,7 +203,7 @@ const corner = [reviews[0]!, reviews[2]!]
         <div><b>ruAI</b><span>Нейросеть без VPN</span><span>Россия</span></div>
         <div><b>Разделы</b><RouterLink to="/chat">Чат</RouterLink><RouterLink to="/pricing">Тарифы</RouterLink></div>
         <div><b>Оплата</b><span>МИР, СБП</span><span>SberPay</span></div>
-        <div><b>Поддержка</b><a href="mailto:support@ruai.example">support@ruai.example</a><span>9:00–21:00 МСК</span></div>
+        <div><b>Поддержка</b><a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a><span>9:00–21:00 МСК</span></div>
       </div>
       <svg class="foot__mark" viewBox="0 0 400 104" role="img" aria-label="ruAI"><text x="0" y="100" textLength="400" lengthAdjust="spacingAndGlyphs">RUAI</text></svg>
       <p class="foot__legal">© {{ new Date().getFullYear() }} ruAI. Оферта · Конфиденциальность</p>

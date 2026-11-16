@@ -3,7 +3,7 @@ import { router } from '@/router'
 import { formatPrice } from '@/lib/format'
 import { getPlans } from '../plans'
 import { AI_PROVIDER, LEGAL_DOCS, LEGAL_ORDER, isLegalSlug, type Block } from '../legal/docs'
-import { LEGAL_VERSION, OPERATOR, legalDate, operatorLine, tgHandle, tgLink } from '../legal/operator'
+import { LEGAL_VERSION, OPERATOR, legalDate, linkBots, operatorLine, tgHandle, tgLink } from '../legal/operator'
 
 const text = (blocks: Block[]) =>
   blocks.map((b) => (typeof b === 'string' ? b : 'list' in b ? b.list.join('\n') : [...b.table.head, ...b.table.rows.flat()].join('\n'))).join('\n')
@@ -34,7 +34,7 @@ describe('legal documents', () => {
       }
     expect(terms).toMatch(/автоматически/)
     expect(terms).toMatch(/ст\. 32/)
-    expect(terms).toContain(OPERATOR.email)
+    expect(terms).toContain('@ruchatgptaibot')
   })
 
   it('privacy policy and consent name the cross-border transfer, retention and rights', () => {
@@ -51,12 +51,13 @@ describe('legal documents', () => {
     expect(consent).toMatch(/отозвать/i)
   })
 
-  it('documents publish no personal names or registration numbers, only the contact email', () => {
+  it('documents publish no personal names, registration numbers or email, only the support bot', () => {
     expect(operatorLine()).toBe('администрация сервиса ru-chatgpt.com')
     for (const slug of LEGAL_ORDER) {
       const t = whole(slug)
       expect(t).not.toMatch(/ИНН|ОГРН|предприниматель|\[[^\]]+\]/)
-      expect(t).toContain(OPERATOR.email)
+      expect(t).not.toMatch(/support@|mailto:|по email/)
+      expect(t).toContain(`в бот поддержки ${tgHandle(OPERATOR.supportBot)}`)
     }
     expect(legalDate('2026-11-15')).toBe('15 ноября 2026 г.')
   })
@@ -104,7 +105,7 @@ describe('legal documents', () => {
   })
 
   it('боты: поддержка и вход с 2FA названы в документах, ссылки собираются безопасно', () => {
-    expect(OPERATOR.email).toBe('support@mail.ru-chatgpt.com')
+    expect('email' in OPERATOR).toBe(false)
     expect(OPERATOR.supportBot).toBe('ruchatgptaibot')
     expect(OPERATOR.authBot).toBe('ru_chat_gpt_auth_bot')
     expect(tgHandle(OPERATOR.authBot)).toBe('@ru_chat_gpt_auth_bot')
@@ -123,7 +124,7 @@ describe('legal documents', () => {
     expect(terms).toMatch(/не принимает обращения/)
     expect(terms).toMatch(/никогда не просим пароль, коды подтверждения и данные карты/)
     // отмена автопродления, возврат и претензии принимаются и в боте поддержки
-    expect(terms.match(/или в бот поддержки @ruchatgptaibot/g)?.length).toBeGreaterThanOrEqual(3)
+    expect(terms.match(/в бот поддержки @ruchatgptaibot/g)?.length).toBeGreaterThanOrEqual(3)
     // FreeKassa без автосписаний: условия не обещают автопродление
     expect(terms).toMatch(/Автопродления нет/)
     expect(terms).not.toMatch(/Отмена автопродления/)
@@ -136,5 +137,22 @@ describe('legal documents', () => {
     expect(all).toMatch(/Telegram/)
     expect(all).not.toMatch(/одноразовому коду|сервису отправки писем|с адреса, указанного в аккаунте/i)
     expect(LEGAL_VERSION).toBe('2026-11-16')
+  })
+
+  it('linkBots: ссылками становятся только официальные боты', () => {
+    expect(linkBots('Пишите в бот @ruchatgptaibot.')).toEqual([
+      { text: 'Пишите в бот ' },
+      { text: '@ruchatgptaibot', href: 'https://t.me/ruchatgptaibot' },
+      { text: '.' },
+    ])
+    expect(linkBots('@ru_chat_gpt_auth_bot и @ruchatgptaibot')).toEqual([
+      { text: '@ru_chat_gpt_auth_bot', href: 'https://t.me/ru_chat_gpt_auth_bot' },
+      { text: ' и ' },
+      { text: '@ruchatgptaibot', href: 'https://t.me/ruchatgptaibot' },
+    ])
+    // чужие и похожие имена остаются текстом
+    for (const t of ['@evil_bot', '@ruchatgptaibot_fake', 'mail@ruchatgptaibotx', 'help@ruchatgptaibot']) expect(linkBots(t)).toEqual([{ text: t }])
+    expect(linkBots('')).toEqual([{ text: '' }])
+    expect(() => linkBots('x', { ...OPERATOR, supportBot: 'a|.*' })).toThrow()
   })
 })

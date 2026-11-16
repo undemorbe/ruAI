@@ -22,9 +22,8 @@ export function organization(): Node {
     name: SITE_HOST,
     url: `${SITE_URL}/`,
     logo: { '@type': 'ImageObject', url: absUrl(LOGO_PATH), width: 512, height: 512 },
-    email: OPERATOR.email,
     description: DISCLAIMER,
-    contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', email: OPERATOR.email, url: tgLink(OPERATOR.supportBot), availableLanguage: 'Russian' },
+    contactPoint: { '@type': 'ContactPoint', contactType: 'customer support', url: tgLink(OPERATOR.supportBot), availableLanguage: 'Russian' },
   }
 }
 

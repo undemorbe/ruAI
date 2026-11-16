@@ -343,4 +343,15 @@ describe('подтверждение прав в Вебмастере и Search 
     const [path, body] = google[0]!
     expect(body).toBe(`google-site-verification: ${path.split('/').pop()}`)
   })
+
+  it('контакты: везде бот поддержки ссылкой, email не публикуется', () => {
+    const all = PUBLIC_PAGES.map((p) => renderBody(p)).join('\n')
+    expect(all).not.toMatch(/support@|mailto:/)
+    const terms = renderBody(seoForPath('/legal/terms'))
+    expect(terms).toContain('<a href="https://t.me/ruchatgptaibot">@ruchatgptaibot</a>')
+    expect(renderBody(seoForPath('/legal'))).toContain('href="https://t.me/ruchatgptaibot"')
+    const org = JSON.stringify(jsonLdFor(seoForPath('/')))
+    expect(org).not.toMatch(/"email"/)
+    expect(org).toContain('https://t.me/ruchatgptaibot')
+  })
 })

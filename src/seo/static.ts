@@ -2,7 +2,7 @@ import { FAQ_INTRO, MAIN_NAV, PRICING_INTRO, landingSeo } from '@/content/landin
 import { AUTH_TEXT } from '@/content/auth'
 import { askExamples, faq } from '@/content/landing'
 import { LEGAL_DOCS, LEGAL_ORDER, type Block } from '@/content/legal/docs'
-import { OPERATOR, legalDate, tgHandle, tgLink } from '@/content/legal/operator'
+import { OPERATOR, legalDate, linkBots, tgHandle, tgLink } from '@/content/legal/operator'
 import { paymentPage } from '@/content/payment'
 import { TIER_LABEL, getPlans } from '@/content/plans'
 import type { PlanTier } from '@/api/types'
@@ -33,7 +33,7 @@ function crumbs(page: SeoPage): string {
 
 function footer(): string {
   const links = [a('/chat', 'Чат'), ...MAIN_NAV.map((n) => a(n.to, n.label)), a('/legal', 'Документы'), a('/legal/privacy', 'Конфиденциальность'), a('/legal/terms', 'Условия использования')]
-  return `<footer><nav aria-label="Подвал">${links.join(' · ')}</nav><p>Поддержка: ${e(OPERATOR.email)}, Telegram ${a(tgLink(OPERATOR.supportBot), tgHandle(OPERATOR.supportBot))}</p><p>${e(DISCLAIMER)}</p></footer>`
+  return `<footer><nav aria-label="Подвал">${links.join(' · ')}</nav><p>Поддержка в Telegram: ${a(tgLink(OPERATOR.supportBot), tgHandle(OPERATOR.supportBot))}</p><p>${e(DISCLAIMER)}</p></footer>`
 }
 
 function plans(tier: PlanTier, level: 'h2' | 'h3'): string {
@@ -47,9 +47,12 @@ function plans(tier: PlanTier, level: 'h2' | 'h3'): string {
 
 const faqList = () => `<dl>${faq.map((f) => `<dt>${e(f.q)}</dt><dd>${e(f.a)}</dd>`).join('')}</dl>`
 
+/** Текст документа: экранирован, официальные боты стали ссылками. */
+const rich = (t: string) => linkBots(t).map((p) => (p.href ? a(p.href, p.text) : e(p.text))).join('')
+
 function block(b: Block): string {
-  if (typeof b === 'string') return `<p>${e(b)}</p>`
-  if ('list' in b) return ul(b.list.map(e))
+  if (typeof b === 'string') return `<p>${rich(b)}</p>`
+  if ('list' in b) return ul(b.list.map(rich))
   const head = b.table.head.map((h) => `<th scope="col">${e(h)}</th>`).join('')
   const rows = b.table.rows.map((r) => `<tr>${r.map((c) => `<td>${e(c)}</td>`).join('')}</tr>`).join('')
   return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`
@@ -84,7 +87,6 @@ function main(page: SeoPage): string {
       return [
         h1,
         `<p>${e(DISCLAIMER)}</p>`,
-        `<p>Email для обращений: ${e(OPERATOR.email)}</p>`,
         `<p>Поддержка в Telegram: ${a(tgLink(OPERATOR.supportBot), tgHandle(OPERATOR.supportBot))}</p>`,
         `<p>Вход и двухфакторная аутентификация: ${a(tgLink(OPERATOR.authBot), tgHandle(OPERATOR.authBot))}. Обращения не принимает, пароль и коды никогда не спрашивает.</p>`,
         ul(LEGAL_ORDER.map((s) => `${a(`/legal/${s}`, LEGAL_DOCS[s].title)}, редакция от ${e(legalDate(LEGAL_DOCS[s].version))}`)),

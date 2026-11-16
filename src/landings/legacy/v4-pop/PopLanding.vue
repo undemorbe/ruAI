@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OPERATOR, tgHandle, tgLink } from '@/content/legal/operator'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { reviews, stages } from '@/content/landing'
 import { useGoogleFont } from '@/lib/fonts'
@@ -195,7 +196,7 @@ if user is None:
         <nav aria-label="Продукт"><b>Продукт</b><RouterLink to="/chat">Чат</RouterLink><RouterLink to="/pricing">Тарифы</RouterLink></nav>
         <nav aria-label="Оплата"><b>Оплата</b><span>Карты МИР</span><span>СБП, SberPay</span></nav>
         <nav aria-label="Помощь"><b>Помощь</b><a href="#" @click.prevent>Вопросы</a><a href="#" @click.prevent>Оферта</a></nav>
-        <div class="foot__contact"><b>Поддержка</b><a href="mailto:support@ruai.example">support@ruai.example</a><span>Ежедневно 9:00–21:00 МСК</span></div>
+        <div class="foot__contact"><b>Поддержка</b><a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a><span>Ежедневно 9:00–21:00 МСК</span></div>
       </div>
       <div class="foot__last">
         <span>© {{ new Date().getFullYear() }} ruAI</span>

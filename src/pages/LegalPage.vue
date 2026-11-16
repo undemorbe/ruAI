@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import { LEGAL_DOCS, LEGAL_ORDER, isLegalSlug } from '@/content/legal/docs'
-import { OPERATOR, legalDate, tgHandle, tgLink } from '@/content/legal/operator'
+import { OPERATOR, legalDate, linkBots, tgHandle, tgLink } from '@/content/legal/operator'
 import { consent, resetConsent } from '@/lib/analytics'
 
 const route = useRoute()
@@ -40,9 +40,9 @@ const consentLabel = computed(() =>
         <section v-for="s in doc.sections" :key="s.h">
           <h2>{{ s.h }}</h2>
           <template v-for="(b, i) in s.body" :key="i">
-            <p v-if="typeof b === 'string'">{{ b }}</p>
+            <p v-if="typeof b === 'string'"><template v-for="(p, pi) in linkBots(b)" :key="pi"><a v-if="p.href" :href="p.href" target="_blank" rel="noopener noreferrer">{{ p.text }}</a><template v-else>{{ p.text }}</template></template></p>
             <ul v-else-if="'list' in b">
-              <li v-for="li in b.list" :key="li">{{ li }}</li>
+              <li v-for="li in b.list" :key="li"><template v-for="(p, pi) in linkBots(li)" :key="pi"><a v-if="p.href" :href="p.href" target="_blank" rel="noopener noreferrer">{{ p.text }}</a><template v-else>{{ p.text }}</template></template></li>
             </ul>
             <div v-else class="lg__table">
               <table>
@@ -73,11 +73,7 @@ const consentLabel = computed(() =>
         <p class="lg__lead">ChatGPT на {{ OPERATOR.site.replace(/^https?:\/\//, '') }} — независимый сервис, не связан с OpenAI. ChatGPT — товарный знак OpenAI.</p>
         <dl class="lg__req">
           <div>
-            <dt>Email для обращений</dt>
-            <dd><a :href="`mailto:${OPERATOR.email}`">{{ OPERATOR.email }}</a></dd>
-          </div>
-          <div>
-            <dt>Поддержка в Telegram</dt>
+            <dt>Обращения и поддержка</dt>
             <dd><a :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">{{ tgHandle(OPERATOR.supportBot) }}</a></dd>
           </div>
           <div>

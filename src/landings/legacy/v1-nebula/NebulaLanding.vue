@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OPERATOR, tgHandle, tgLink } from '@/content/legal/operator'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { askExamples, answerFor, faq, reviews, stages, switches } from '@/content/landing'
 import { getPlans } from '@/content/plans'
@@ -321,7 +322,7 @@ onBeforeUnmount(() => {
         <p>ruAI · нейросеть без VPN<br />Поддержка ежедневно, 9:00–21:00 МСК</p>
         <a href="#h1" class="foot__up">Наверх</a>
       </div>
-      <a class="foot__mail" href="mailto:support@ruai.example">support<br />@ruai.example</a>
+      <a class="foot__mail" :href="tgLink(OPERATOR.supportBot)" target="_blank" rel="noopener noreferrer">Telegram<br />{{ tgHandle(OPERATOR.supportBot) }}</a>
       <div class="foot__meta">
         <span><RouterLink to="/chat">Чат</RouterLink> · <RouterLink to="/pricing">Тарифы</RouterLink></span>
         <span>Оплата: МИР, СБП, SberPay</span>

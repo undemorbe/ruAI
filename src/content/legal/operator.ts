@@ -1,9 +1,9 @@
 /**
  * Контакты сервиса для юридических документов и подвалов. Имена и регистрационные данные
- * владельца на сайте пока не публикуются — в документах он назван «администрацией сервиса».
+ * владельца на сайте пока не публикуются: в документах он назван «администрацией сервиса».
+ * Обращения принимает только бот поддержки в Telegram, email на сайте не публикуется.
  */
 export interface Operator {
-  email: string
   site: string
   /** Бот поддержки в Telegram (username без @): вопросы, оплата, возвраты. */
   supportBot: string
@@ -12,7 +12,6 @@ export interface Operator {
 }
 
 export const OPERATOR: Operator = {
-  email: 'support@mail.ru-chatgpt.com',
   site: 'https://ru-chatgpt.com',
   supportBot: 'ruchatgptaibot',
   authBot: 'ru_chat_gpt_auth_bot',
@@ -25,6 +24,31 @@ export const tgHandle = (bot: string): string => `@${bot}`
 export function tgLink(bot: string): string {
   if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(bot)) throw new Error(`bad telegram username: ${bot}`)
   return `https://t.me/${bot}`
+}
+
+/** Кусок текста: обычный или ссылка. */
+export interface TextPart {
+  text: string
+  href?: string
+}
+
+/**
+ * Делит текст на куски: упоминания официальных ботов (@имя) становятся ссылками t.me.
+ * Ссылками становятся только боты из OPERATOR, любые другие @имена остаются текстом.
+ */
+export function linkBots(text: string, o: Operator = OPERATOR): TextPart[] {
+  const bots = [o.supportBot, o.authBot]
+  for (const b of bots) tgLink(b) // имя проверено: в регулярном выражении только [A-Za-z0-9_]
+  const re = new RegExp(`(?<![A-Za-z0-9_.])@(${bots.join('|')})(?![A-Za-z0-9_])`, 'g')
+  const out: TextPart[] = []
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    if (m.index > last) out.push({ text: text.slice(last, m.index) })
+    out.push({ text: m[0], href: tgLink(m[1]!) })
+    last = m.index + m[0].length
+  }
+  if (last < text.length || !out.length) out.push({ text: text.slice(last) })
+  return out
 }
 
 /**
