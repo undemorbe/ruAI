@@ -11,6 +11,7 @@ HERE="$R/deploy"
 ENV_FILE=/etc/ruai-admin.env
 API_ENV=/etc/ruai-api.env
 SNIPPET=/etc/nginx/snippets/ruai-admin.conf
+source "$HERE/shared-db-permissions.sh"
 
 # пользователи и каталоги API (то же делает bootstrap; здесь — чтобы выкладка не зависела от его повторного запуска)
 getent group ruai-data >/dev/null || groupadd --system ruai-data
@@ -47,6 +48,8 @@ if [ -f "$API_ENV" ]; then
 else
   echo "api: не настроен ($API_ENV нет) — сайт работает на демо-режиме"
 fi
+
+set_shared_db_permissions /var/lib/ruai/ruai.db ruai-data
 
 rsync -a --delete "$R/dist/" /var/www/ruai/dist/
 
