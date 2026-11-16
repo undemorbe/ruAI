@@ -18,6 +18,8 @@ const LABEL: Record<AuditEntry['action'], string> = {
   edit_sub: 'Изменена подписка',
   edit_user: 'Изменён профиль',
   logout_user: 'Закрыты входы пользователя',
+  admin_added: 'Добавлен администратор',
+  invite_failed: 'Неверная ссылка-приглашение',
 }
 </script>
 
@@ -34,11 +36,12 @@ const LABEL: Record<AuditEntry['action'], string> = {
       <p v-else-if="log && !log.length" class="muted">Записей нет.</p>
       <div v-else-if="log" class="scroll-x">
         <table class="tbl">
-          <thead><tr><th>Время</th><th>Событие</th><th>IP</th><th>Подробности</th></tr></thead>
+          <thead><tr><th>Время</th><th>Кто</th><th>Событие</th><th>IP</th><th>Подробности</th></tr></thead>
           <tbody>
             <tr v-for="(e, i) in log" :key="i">
               <td>{{ dateTime(e.at) }}</td>
-              <td :class="{ bad: e.action === 'login_failed' || e.action === 'locked' }">{{ LABEL[e.action] }}</td>
+              <td class="mono">{{ e.by ?? '' }}</td>
+              <td :class="{ bad: e.action === 'login_failed' || e.action === 'locked' || e.action === 'invite_failed' }">{{ LABEL[e.action] }}</td>
               <td class="mono">{{ e.ip }}</td>
               <td class="muted">{{ e.detail ?? '' }}</td>
             </tr>

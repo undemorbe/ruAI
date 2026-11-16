@@ -1,5 +1,5 @@
 /**
- * Сессии и защита входа. Всё в памяти: одна учётная запись, один процесс.
+ * Сессии и защита входа. Всё в памяти, один процесс; у каждого аккаунта одна сессия.
  * Перезапуск сервера закрывает все сессии — это нормально для админки.
  */
 import { randomToken, sha256 } from './crypto.ts'
@@ -24,8 +24,8 @@ export class Sessions {
   }
 
   create(login: string, ip: string, ua: string, now = Date.now()): string {
-    // одна активная сессия: новый вход закрывает старые
-    this.map.clear()
+    // одна активная сессия на аккаунт: новый вход закрывает прежние сессии этого логина
+    this.dropLogin(login)
     const token = randomToken()
     this.map.set(sha256(token), { login, createdAt: now, lastSeen: now, ip, ua: sha256(ua) })
     return token
@@ -51,6 +51,11 @@ export class Sessions {
 
   drop(token: string | undefined) {
     if (token) this.map.delete(sha256(token))
+  }
+
+  /** Закрыть все сессии аккаунта (повторный вход, удалённый администратор). */
+  dropLogin(login: string) {
+    for (const [k, s] of this.map) if (s.login === login) this.map.delete(k)
   }
 }
 

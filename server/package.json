@@ -8,6 +8,7 @@
     "start": "node --disable-warning=ExperimentalWarning --import ./src/register.ts src/main.ts",
     "dev": "ADMIN_DEMO=1 node --disable-warning=ExperimentalWarning --import ./src/register.ts --watch src/main.ts",
     "setup": "node scripts/admin-setup.ts",
+    "dev:admin-db": "node --disable-warning=ExperimentalWarning --import ./src/register.ts scripts/admin-dev.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=ExperimentalWarning --import ./src/register.ts --test 'src/**/*.test.ts'",
     "start:api": "node --disable-warning=ExperimentalWarning --import ./src/register.ts src/api/main.ts",

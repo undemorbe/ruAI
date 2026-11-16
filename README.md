@@ -21,6 +21,7 @@ npm run dev
 | `npm run typecheck` | `vue-tsc -b` |
 | `npm test` | unit-тесты (Vitest + jsdom) |
 | `npm run dev:admin` | админка на моке с демо-данными: http://localhost:5193, вход `admin` / `demo` / `000000` |
+| `npm run dev:admin:db` | админка на локальной базе `server/.data/ruai.db`: http://localhost:5195 (нужны `dev:api` и `dev:admin-db` в `server/`) |
 | `npm run build:admin` | сборка админки в `dist-admin/` (относительные пути, работает под любым секретным путём) |
 
 ## Страницы
@@ -134,7 +135,38 @@ UI работает только через контракты из `api/service
 | Настройки | внутренний бюджет каждой подписки (₽), курс $ для пересчёта |
 | Безопасность | текущая сессия и журнал входов и изменений |
 
-Контракт — `src/admin/api/contract.ts`, сервер — `server/`. Пока к серверу не подключена боевая база, отчёты отвечают 501, а с `ADMIN_DEMO=1` — демо-данными. Чтобы подключить базу, реализуйте интерфейс `AdminRepo` (`server/src/store.ts`) поверх неё.
+Контракт - `src/admin/api/contract.ts`, сервер - `server/`. Отчёты, карточки и действия с пользователями идут из общей базы сайта (`RUAI_DB`, `server/src/sqlRepo.ts`); без базы отчёты отвечают 501, с `ADMIN_DEMO=1` - демо-данными. Выдачи подписок из панели (0 ₽) не считаются продажами, обезличенные платежи и расходы удалённых пользователей входят в суммы, но не в число пользователей.
+
+Локально на настоящей базе (данные `npm run dev:api`):
+
+```bash
+cd server && npm run dev:api        # API сайта, база server/.data/ruai.db
+cd server && npm run dev:admin-db   # сервер админки 127.0.0.1:8788, печатает код TOTP
+npm run dev:admin:db                # интерфейс http://localhost:5195, вход admin / demo / код из консоли
+```
+
+### Несколько администраторов
+
+Основной аккаунт - в `/etc/ruai-admin.env`. Остальных добавляют приглашением (на сервере, от root):
+
+```bash
+cd /opt/ruai/server && node --import ./src/register.ts scripts/admin-invite.ts <логин>   # ссылка на 48 часов
+cd /opt/ruai/server && node --import ./src/register.ts scripts/admin-invite.ts --list
+cd /opt/ruai/server && node --import ./src/register.ts scripts/admin-invite.ts --remove <логин>
+```
+
+Ссылка `https://ru-chatgpt.com/<ADMIN_PATH>/#/invite/<токен>` одноразовая: по ней новый администратор задаёт пароль (от 14 символов) и подключает 6-значный код в приложении-аутентификаторе, потом входит как обычно. Права у всех одинаковые, в журнале видно, кто что сделал. Аккаунты лежат в `/var/lib/ruai-admin/admins.json` (chmod 600), токен приглашения хранится только хешем. Удалённый администратор теряет доступ на следующем запросе.
+
+### Env-файлы на проде
+
+Секретов в репозитории нет. На сервере `ruai-vps` (195.133.20.145):
+
+| Файл | Сервис | Что внутри | Кто создаёт |
+| --- | --- | --- | --- |
+| `/etc/ruai-api.env` | `ruai-api` | `API_PEPPER`, `OPENROUTER_API_KEY`, `TG_BOT_TOKEN`, `FREEKASSA_*`, `API_ORIGIN` | `cd /opt/ruai/server && node --import ./src/register.ts scripts/api-setup.ts --origin https://ru-chatgpt.com --write /etc/ruai-api.env` |
+| `/etc/ruai-admin.env` | `ruai-admin` | `ADMIN_PATH`, `ADMIN_LOGIN`, `ADMIN_PASSWORD_HASH`, `ADMIN_TOTP_SECRET`, `ADMIN_ORIGIN` | `cd /opt/ruai/server && node scripts/admin-setup.ts --origin https://ru-chatgpt.com --write /etc/ruai-admin.env` |
+
+Оба `root:root`, `chmod 600` (`server-apply.sh` проверяет), systemd читает их через `EnvironmentFile`. Пути к базе (`RUAI_DB=/var/lib/ruai/ruai.db`) и фото заданы в юнитах `deploy/systemd/*.service`. Посмотреть: `ssh ruai-vps sudo cat /etc/ruai-api.env`.
 
 ### Защита
 
@@ -213,7 +245,6 @@ ssh ruai-vps 'bash /opt/ruai/deploy/server-apply.sh'
 - Отзывы в `src/content/landing.ts` — **выдуманные заглушки** для вёрстки. Замените их на реальные (с согласия авторов).
 - Внутренние бюджеты подписок по умолчанию — 40 % цены (заглушка, в ТЗ суммы нет); задайте свои в админке → «Настройки». Сверьте цены OpenRouter для `gpt-oss-20b`, Luna и генерации.
 - Проверьте тестовым запросом в OpenRouter идентификаторы `openai/gpt-5.6-luna` и `IMAGE_MODEL_ID` (`src/config/app.ts`) и что генерация возвращает картинку в ответе.
-- Подключите `AdminRepo` сервера админки к боевой базе (до этого отчёты — 501).
 - Проверьте тексты оферты, политики конфиденциальности и e-mail поддержки (`src/config/app.ts`).
 
 ## Лицензия

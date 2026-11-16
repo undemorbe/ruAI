@@ -13,9 +13,11 @@ export const compact = (n: number) => new Intl.NumberFormat('ru-RU', { notation:
 
 export const PLAN_LABEL = { week: '7 дней', month: '30 дней', quarter: '90 дней' } as const
 export const TIER_SHORT = { text: 'Текст', media: 'С фото' } as const
+/** Коды error_code, которые пишет сервер сайта (server/src/api); полноту сверяет тест format.spec.ts. */
 export const ERROR_LABEL: Record<string, string> = {
   upstream: 'Модель не ответила',
-  timeout: 'Таймаут',
-  moderation: 'Модерация',
-  too_long: 'Слишком длинный запрос',
+  empty: 'Пустой ответ модели',
+  no_image: 'Картинка не получилась',
+  internal: 'Внутренняя ошибка сервера',
+  interrupted: 'Прервано перезапуском сервера',
 }

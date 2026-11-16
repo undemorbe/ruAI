@@ -2,9 +2,11 @@
 import BrandMark from '@/components/ui/BrandMark.vue'
 import { computed, onBeforeUnmount, onMounted, ref, type Component } from 'vue'
 import { adminApi } from './api'
+import { inviteToken } from './invite'
 import { bumpIdle, logout, range, session, userCard } from './state'
 import RangePicker from './ui/RangePicker.vue'
 import UserDrawer from './ui/UserDrawer.vue'
+import InviteView from './views/InviteView.vue'
 import LoginView from './views/LoginView.vue'
 import OverviewView from './views/OverviewView.vue'
 import AnalyticsView from './views/AnalyticsView.vue'
@@ -33,6 +35,13 @@ const ready = ref(false)
 const hash = ref(location.hash)
 const current = computed(() => SECTIONS.find((s) => `#/${s.id}` === hash.value) ?? SECTIONS[0]!)
 const onHash = () => (hash.value = location.hash)
+/** Ссылка-приглашение открывает подключение нового администратора вместо панели. */
+const invite = computed(() => inviteToken(hash.value))
+function inviteDone() {
+  // токен больше не нужен в адресе и истории
+  history.replaceState(null, '', location.pathname + location.search)
+  hash.value = ''
+}
 const activity = () => bumpIdle()
 
 onMounted(async () => {
@@ -53,7 +62,8 @@ onBeforeUnmount(() => {
 
 <template>
   <template v-if="ready">
-    <LoginView v-if="!session" />
+    <InviteView v-if="invite" :token="invite" @done="inviteDone" />
+    <LoginView v-else-if="!session" />
     <div v-else class="sh">
       <aside class="sh__side">
         <div class="sh__brand">

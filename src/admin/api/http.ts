@@ -51,6 +51,9 @@ export const httpAdmin: AdminService = {
   },
   login: (input) => send('login', 'POST', input),
   logout: () => send('logout', 'POST'),
+  // токен - в теле, а не в адресе: не попадает в логи
+  inviteInfo: (token) => send('invite', 'POST', { token }),
+  acceptInvite: (input) => send('invite/accept', 'POST', input),
   overview: (r) => get(`reports/overview?${qs(r)}`),
   analytics: (r) => get(`reports/analytics?${qs(r)}`),
   payments: (r) => get(`reports/payments?${qs(r)}`),

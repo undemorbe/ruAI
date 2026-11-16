@@ -16,6 +16,9 @@ const SETTINGS_KEY = 'ruai.mock.admin.settings'
 const SESSION_KEY = 'ruai.mock.admin.session'
 const ds = buildDataset()
 const audit: AuditEntry[] = []
+/** Демо-приглашение: #/invite/demo-invite-token-0000000000 (код 000000). */
+const MOCK_INVITE = 'demo-invite-token-0000000000'
+const invited = new Map<string, string>()
 const wait = (ms = 180) => new Promise((r) => setTimeout(r, ms))
 const log = (action: AuditEntry['action'], detail?: string) => audit.unshift({ at: new Date().toISOString(), ip: '127.0.0.1', action, detail })
 
@@ -53,7 +56,8 @@ export const mockAdmin: AdminService = {
   },
   async login({ login, password, code }) {
     await wait(400)
-    if (login !== 'admin' || password !== 'demo' || code !== '000000') {
+    const ok = code === '000000' && ((login === 'admin' && password === 'demo') || invited.get(login) === password)
+    if (!ok) {
       log('login_failed', login)
       throw new AdminError('Неверный логин, пароль или код', 401)
     }
@@ -65,6 +69,20 @@ export const mockAdmin: AdminService = {
   async logout() {
     sessionStorage.removeItem(SESSION_KEY)
     log('logout')
+  },
+  async inviteInfo(token) {
+    await wait(120)
+    if (token !== MOCK_INVITE || invited.has('newadmin')) throw new AdminError('Ссылка недействительна или истекла', 404)
+    const secret = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'
+    return { login: 'newadmin', secret, uri: `otpauth://totp/ruAI%20admin%3Anewadmin?secret=${secret}&issuer=ruAI%20admin`, expiresAt: new Date(Date.now() + 48 * 3_600_000).toISOString() }
+  },
+  async acceptInvite({ token, password, code }) {
+    const { login } = await mockAdmin.inviteInfo(token)
+    if (password.length < 14) throw new AdminError('Пароль - не короче 14 символов', 400)
+    if (code !== '000000') throw new AdminError('Неверный код из приложения', 400)
+    invited.set(login, password)
+    log('admin_added', login)
+    return { login }
   },
   overview: (r) => guarded(() => overview(ds, r, loadSettings())),
   analytics: (r) => guarded(() => analyticsReport(ds, r, loadSettings()), 260),

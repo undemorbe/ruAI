@@ -13,6 +13,7 @@ import {
   overview,
   paymentsReport,
   usersPage,
+  DELETED,
   type Dataset,
   type DemoPayment,
   type DemoUsage,
@@ -44,8 +45,8 @@ export function loadDataset(db: Db, now: number, from = now - HORIZON): Dataset 
   )
   const users: DemoUser[] = db
     // tg_id и хэш пароля в панель не уходят: только признак «Telegram подключён»
-    .all<{ id: string; login: string; email: string | null; telegram: number; created_at: number; blocked_at: number | null; admin_note: string | null }>(
-      'SELECT id, login, email, tg_id IS NOT NULL AS telegram, created_at, blocked_at, admin_note FROM users',
+    .all<{ id: string; login: string; email: string | null; telegram: number; created_at: number; last_active_at: number | null; blocked_at: number | null; admin_note: string | null }>(
+      'SELECT id, login, email, tg_id IS NOT NULL AS telegram, created_at, last_active_at, blocked_at, admin_note FROM users',
     )
     .map((u) => ({
       id: u.id,
@@ -54,6 +55,7 @@ export function loadDataset(db: Db, now: number, from = now - HORIZON): Dataset 
       telegram: !!u.telegram,
       registeredAt: u.created_at,
       sessions: sessions.get(u.id) ?? 0,
+      ...(u.last_active_at ? { lastActiveAt: u.last_active_at } : {}),
       ...(u.admin_note ? { note: u.admin_note } : {}),
       ...(u.blocked_at ? { blocked: true } : {}),
     }))
@@ -65,7 +67,7 @@ export function loadDataset(db: Db, now: number, from = now - HORIZON): Dataset 
     )
     .map((p) => ({
       id: p.id,
-      userId: p.user_id ?? 'deleted',
+      userId: p.user_id ?? DELETED,
       at: p.at,
       tier: p.tier,
       planId: p.plan_id,
@@ -101,11 +103,11 @@ export function loadDataset(db: Db, now: number, from = now - HORIZON): Dataset 
      FROM usage_events WHERE created_at >= ? AND status = 'error' AND error_code NOT IN ('aborted') GROUP BY user_id, day, tier, error_code`,
     from,
   )
-  const key = (u: string | null, d: number, t: string) => `${u ?? 'deleted'}|${d}|${t}`
+  const key = (u: string | null, d: number, t: string) => `${u ?? DELETED}|${d}|${t}`
   const usage = new Map<string, DemoUsage>()
   for (const r of usageRows) {
     usage.set(key(r.user_id, r.day, r.tier), {
-      userId: r.user_id ?? 'deleted',
+      userId: r.user_id ?? DELETED,
       day: r.day,
       tier: r.tier,
       requests: r.requests,

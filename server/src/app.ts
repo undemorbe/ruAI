@@ -9,8 +9,9 @@ import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
 import type { AdminSettings, DateRange, PlanId, PlanTier, SubEdit, UserEdit, UsersQuery } from '../../src/admin/api/types.ts'
 import { checkSubEdit, checkUserEdit, MAX_NOTE } from '../../src/admin/edits.ts'
 import { checkRange, lastDays } from '../../src/admin/range.ts'
+import { AdminAccounts, MIN_PASSWORD } from './accounts.ts'
 import type { Config } from './config.ts'
-import { safeEqual, verifyPassword, verifyTotp } from './crypto.ts'
+import { hashPassword, otpauthUri, safeEqual, verifyPassword, verifyTotp } from './crypto.ts'
 import { Sessions, Throttle, type Session } from './guard.ts'
 import type { AdminActions, EditResult } from './sqlRepo.ts'
 import { authLogger, demoRepo, FileStore, type AdminRepo, type SettingsStore } from './store.ts'
@@ -64,6 +65,8 @@ export interface Deps {
   settings?: SettingsStore
   now?: () => number
   log?: ReturnType<typeof authLogger>
+  /** Дополнительные администраторы и приглашения (по умолчанию - файлы в ADMIN_DATA_DIR). */
+  accounts?: AdminAccounts
 }
 
 export function buildApp(cfg: Config, deps: Deps = {}) {
@@ -72,6 +75,7 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
   const settings: SettingsStore = deps.settings ?? store
   const now = deps.now ?? Date.now
   const authLog = deps.log ?? authLogger(cfg.authLog)
+  const accounts = deps.accounts ?? new AdminAccounts(cfg.dataDir, cfg.login)
   const sessions = new Sessions(cfg.idleMs, cfg.absoluteMs)
   const throttle = new Throttle()
   const cookieName = cfg.insecureCookie ? 'ruai_admin' : '__Host-ruai_admin'
@@ -118,10 +122,14 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
     if (!cfg.insecureCookie) attrs.push('Secure')
     reply.header('Set-Cookie', attrs.join('; '))
   }
-  const audit = (req: FastifyRequest, action: Parameters<FileStore['audit']>[0]['action'], detail?: string) =>
-    store.audit({ at: new Date(now()).toISOString(), ip: req.ip, action, ...(detail ? { detail } : {}) })
+  const audit = (req: FastifyRequest, action: Parameters<FileStore['audit']>[0]['action'], detail?: string) => {
+    const by = sessionOf.get(req)?.login
+    store.audit({ at: new Date(now()).toISOString(), ip: req.ip, action, ...(detail ? { detail } : {}), ...(by ? { by } : {}) })
+  }
 
   const sessionOf = new WeakMap<FastifyRequest, Session>()
+  const prefix = `/${cfg.adminPath}/api`
+  const PUBLIC = new Set([`${prefix}/login`, `${prefix}/invite`, `${prefix}/invite/accept`])
 
   app.register(
     async (api) => {
@@ -131,9 +139,15 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
         if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers.origin !== cfg.origin) {
           return reply.code(403).send({ message: 'Запрещено' })
         }
-        if (req.routeOptions.url?.endsWith('/login')) return
+        // без сессии: вход и подключение по приглашению
+        if (PUBLIC.has(req.routeOptions.url ?? '')) return
         const s = sessions.touch(readCookie(req), req.headers['user-agent'] ?? '', now())
         if (!s) return reply.code(401).send({ message: 'Нужно войти' })
+        // удалённый администратор (scripts/admin-invite.ts --remove) теряет доступ сразу
+        if (s.login !== cfg.login && !accounts.find(s.login)) {
+          sessions.dropLogin(s.login)
+          return reply.code(401).send({ message: 'Нужно войти' })
+        }
         sessionOf.set(req, s)
       })
 
@@ -156,10 +170,15 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
         inflightLogins++
         try {
           const { login, password, code } = req.body
-          const loginOk = safeEqual(login, cfg.login)
+          // основной аккаунт - из env, дополнительные - из admins.json
+          const primary = safeEqual(login, cfg.login)
+          const extra = primary ? null : accounts.find(login.trim())
+          const loginOk = primary || !!extra
           // пароль проверяем всегда, даже при неверном логине, - одинаковое время ответа
-          const passOk = await verifyPassword(password, loginOk ? cfg.passwordHash : null)
-          const step = verifyTotp(cfg.totpSecret, code, now(), store.lastTotpStep())
+          const passOk = await verifyPassword(password, primary ? cfg.passwordHash : (extra?.passwordHash ?? null))
+          const step = primary
+            ? verifyTotp(cfg.totpSecret, code, now(), store.lastTotpStep())
+            : verifyTotp(extra?.totpSecret ?? cfg.totpSecret, code, now(), extra?.lastStep ?? Infinity)
           if (!(loginOk && passOk && step !== null)) {
             const locked = throttle.fail(ip, now())
             authLog('ADMIN_AUTH_FAIL', ip)
@@ -170,18 +189,87 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
             }
             return reply.code(401).send({ message: 'Неверный логин, пароль или код' })
           }
-          store.setLastTotpStep(step)
+          const who = primary ? cfg.login : extra!.login
+          if (primary) store.setLastTotpStep(step)
+          else accounts.setLastStep(who, step)
           throttle.success(ip)
-          const token = sessions.create(cfg.login, ip, req.headers['user-agent'] ?? '', now())
+          const token = sessions.create(who, ip, req.headers['user-agent'] ?? '', now())
           setCookie(reply, token, Math.floor(cfg.absoluteMs / 1000))
           authLog('ADMIN_AUTH_OK', ip)
-          audit(req, 'login', cfg.login)
+          audit(req, 'login', who)
           const s = sessions.touch(token, req.headers['user-agent'] ?? '', now())!
           return { login: s.login, expiresAt: new Date(sessions.expiresAt(s)).toISOString(), demo: cfg.demo }
         } finally {
           inflightLogins--
         }
       })
+
+      // ---------- приглашение администратора (одноразовая ссылка из scripts/admin-invite.ts) ----------
+      const TOKEN = { type: 'string', minLength: 20, maxLength: 100, pattern: '^[A-Za-z0-9_-]+$' }
+      const throttled = (req: FastifyRequest, reply: FastifyReply) => {
+        const wait = throttle.retryAfter(req.ip, now())
+        if (!wait) return false
+        reply.code(429).header('Retry-After', String(wait)).send({ message: 'Слишком много попыток.' })
+        return true
+      }
+      /** Неверный или истёкший токен - как неудачный вход: счётчик перебора и строка для fail2ban. */
+      const badInvite = (req: FastifyRequest, reply: FastifyReply) => {
+        const locked = throttle.fail(req.ip, now())
+        authLog('ADMIN_AUTH_FAIL', req.ip)
+        audit(req, 'invite_failed')
+        if (locked) authLog('ADMIN_AUTH_LOCK', req.ip)
+        return reply.code(404).send({ message: 'Ссылка недействительна или истекла. Попросите новую.' })
+      }
+
+      api.post<{ Body: { token: string } }>(
+        '/invite',
+        { schema: { body: { type: 'object', additionalProperties: false, required: ['token'], properties: { token: TOKEN } } } },
+        async (req, reply) => {
+          if (throttled(req, reply)) return
+          const inv = accounts.invite(req.body.token, now())
+          if (!inv) return badInvite(req, reply)
+          return { login: inv.login, secret: inv.totpSecret, uri: otpauthUri(inv.totpSecret, inv.login), expiresAt: new Date(inv.expiresAt).toISOString() }
+        },
+      )
+
+      api.post<{ Body: { token: string; password: string; code: string } }>(
+        '/invite/accept',
+        {
+          schema: {
+            body: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['token', 'password', 'code'],
+              properties: { token: TOKEN, password: { type: 'string', minLength: 1, maxLength: 256 }, code: { type: 'string', pattern: '^[0-9]{6}$' } },
+            },
+          },
+        },
+        async (req, reply) => {
+          if (throttled(req, reply)) return
+          const { token, password, code } = req.body
+          const inv = accounts.invite(token, now())
+          if (!inv) return badInvite(req, reply)
+          if (password.length < MIN_PASSWORD) return reply.code(400).send({ message: `Пароль - не короче ${MIN_PASSWORD} символов` })
+          const step = verifyTotp(inv.totpSecret, code, now())
+          if (step === null) {
+            // ссылка верная - это опечатка владельца, не перебор: без строки для fail2ban
+            throttle.fail(req.ip, now())
+            return reply.code(400).send({ message: 'Неверный код из приложения. Проверьте, что время на телефоне точное.' })
+          }
+          if (inflightLogins >= 2) return reply.code(429).header('Retry-After', '2').send({ message: 'Повторите через пару секунд.' })
+          inflightLogins++
+          let hash: string
+          try {
+            hash = await hashPassword(password)
+          } finally {
+            inflightLogins--
+          }
+          const acc = accounts.accept(token, hash, step, now())
+          if (!acc) return badInvite(req, reply)
+          audit(req, 'admin_added', acc.login)
+          return { login: acc.login }
+        },
+      )
 
       api.post('/logout', async (req, reply) => {
         sessions.drop(readCookie(req))
@@ -380,7 +468,7 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
       })
       api.get('/audit', async () => store.recentAudit())
     },
-    { prefix: `/${cfg.adminPath}/api` },
+    { prefix },
   )
 
   return app

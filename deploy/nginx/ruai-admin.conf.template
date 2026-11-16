@@ -24,6 +24,24 @@ location = /__ADMIN_PATH__/api/login {
     include /etc/nginx/snippets/ruai-proxy.conf;
 }
 
+# Приглашение администратора (одноразовая ссылка): тот же лимит, что у входа.
+location = /__ADMIN_PATH__/api/invite {
+    limit_req  zone=ruai_admin_login burst=3 nodelay;
+    limit_conn ruai_admin_conn 5;
+    client_max_body_size 4k;
+    access_log /var/log/nginx/ruai-admin.access.log;
+    proxy_pass http://127.0.0.1:8787;
+    include /etc/nginx/snippets/ruai-proxy.conf;
+}
+location = /__ADMIN_PATH__/api/invite/accept {
+    limit_req  zone=ruai_admin_login burst=3 nodelay;
+    limit_conn ruai_admin_conn 5;
+    client_max_body_size 4k;
+    access_log /var/log/nginx/ruai-admin.access.log;
+    proxy_pass http://127.0.0.1:8787;
+    include /etc/nginx/snippets/ruai-proxy.conf;
+}
+
 location ^~ /__ADMIN_PATH__/api/ {
     # allow 203.0.113.10;
     # deny  all;

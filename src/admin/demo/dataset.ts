@@ -62,6 +62,8 @@ export interface DemoUser {
   note?: string
   /** Открытые сессии. */
   sessions?: number
+  /** Последний заход на сайт (в базе - users.last_active_at); в демо нет, берётся день последнего запроса. */
+  lastActiveAt?: number
 }
 export interface DemoPayment {
   id: string
@@ -137,7 +139,8 @@ function rng(seed: number) {
 
 const NAMES = ['anna', 'dmitry', 'maria', 'igor', 'elena', 'artem', 'olga', 'pavel', 'kate', 'sergey', 'nikita', 'irina', 'max', 'alina', 'roman', 'vera']
 const DOMAINS = ['mail.ru', 'yandex.ru', 'gmail.com', 'bk.ru', 'inbox.ru']
-const ERROR_CODES = ['upstream', 'timeout', 'moderation', 'too_long']
+/** Те же коды, что пишет сервер сайта (подписи - ERROR_LABEL в format.ts). */
+const ERROR_CODES = ['upstream', 'empty', 'no_image', 'interrupted']
 const COST = { text: { in: 0.075, out: 0.3 }, media: { in: 0.2, out: 1.2 }, image: 0.04 }
 
 export function buildDataset(now = Date.now(), seed = 42): Dataset {
@@ -246,6 +249,16 @@ export function buildDataset(now = Date.now(), seed = 42): Dataset {
 const round = (n: number, k = 2) => Math.round(n * 10 ** k) / 10 ** k
 export const ok = (p: DemoPayment) => p.status === 'succeeded'
 export const net = (p: DemoPayment) => (ok(p) && !p.refunded ? p.amount : 0)
+/** Подписка, выданная из панели (0 ₽): не продажа. */
+export const isGrant = (p: DemoPayment) => p.provider === 'admin'
+/** Успешная продажа: оплачена пользователем, а не выдана из панели. */
+export const sale = (p: DemoPayment) => ok(p) && !isGrant(p)
+/**
+ * Платежи и расходы удалённых пользователей остаются в отчётах обезличенными под этим id.
+ * Это не один человек: в счёт пользователей (активные, платящие, топ) он не входит.
+ */
+export const DELETED = 'deleted'
+const person = (userId: string) => userId !== DELETED
 
 /** Окно отчёта [start, end): конец не позже текущего момента. */
 export function windowOf(ds: Dataset, r: DateRange) {
@@ -308,7 +321,7 @@ function overviewTotals(ds: Dataset, r: DateRange, s: AdminSettings): OverviewTo
     cancellations: ds.cancels.filter((c) => c.at >= start && c.at < end).length,
     openrouterUsd: round(usd),
     openrouterRub: Math.round(usd * s.usdRub),
-    activeUsers: new Set(use.filter((u) => u.requests).map((u) => u.userId)).size,
+    activeUsers: new Set(use.filter((u) => u.requests && person(u.userId)).map((u) => u.userId)).size,
     requests: use.reduce((n, u) => n + u.requests, 0),
   }
 }
@@ -333,7 +346,8 @@ const paymentRow = (p: DemoPayment, logins: Map<string, string>): PaymentRow => 
 export function paymentsReport(ds: Dataset, r: DateRange): PaymentsReport {
   const { start, end } = windowOf(ds, r)
   const inRange = ds.payments.filter((p) => p.at >= start && p.at < end)
-  const good = inRange.filter(ok)
+  // выдачи из панели - не продажи: ни в «Продажи по тарифам», ни в первые/повторные оплаты
+  const good = inRange.filter(sale)
   const byPlan = (['text', 'media'] as PlanTier[]).flatMap((tier) =>
     PLAN_IDS.map((planId) => {
       const list = good.filter((p) => p.tier === tier && p.planId === planId)
@@ -400,6 +414,7 @@ export function apiReport(ds: Dataset, r: DateRange, s: AdminSettings): ApiRepor
       byCode: [...codes].map(([code, count]) => ({ code, count })).sort((a, b) => b.count - a.count),
     },
     topUsers: [...perUser]
+      .filter(([userId]) => person(userId))
       .map(([userId, x]) => ({ userId, login: logins.get(userId) ?? userId, usd: round(x.usd, 3), requests: x.requests }))
       .sort((a, b) => b.usd - a.usd)
       .slice(0, 10),
@@ -417,7 +432,7 @@ export function imagesReport(ds: Dataset, r: DateRange, s: AdminSettings): Image
     spendUsd: round(spendUsd),
     spendRub: Math.round(spendUsd * s.usdRub),
     avgCostUsd: generations ? round(spendUsd / generations, 4) : 0,
-    activeUsers: new Set(list.filter((u) => u.generations).map((u) => u.userId)).size,
+    activeUsers: new Set(list.filter((u) => u.generations && person(u.userId)).map((u) => u.userId)).size,
     byPlan: PLAN_IDS.map((planId) => {
       // генерации относим к подписке, которая покрывала день использования
       const own = list.map((u) => ({ u, p: cover(u.userId, u.day) })).filter((x) => x.p?.planId === planId)
@@ -436,7 +451,8 @@ export function userRow(ds: Dataset, u: DemoUser, s: AdminSettings, own = ds.usa
   const subUsd = sub?.spentUsd ?? inSub.reduce((n, x) => n + x.textUsd + x.imageUsd, 0)
   const limit = sub?.totalLimit ?? (sub ? DEMO_PLANS[sub.planId].requests : 0)
   const budget = sub?.budgetRub ?? (sub ? s.budgetsRub[sub.tier][sub.planId] : 0)
-  const lastDay = own.reduce((m, x) => Math.max(m, x.day), 0)
+  // точное время захода, если оно есть; запрос того же дня его не «откатывает» к началу суток
+  const lastDay = own.reduce((m, x) => Math.max(m, x.day), u.lastActiveAt ?? 0)
   return {
     id: u.id,
     login: u.login,
@@ -492,7 +508,7 @@ function financeTotals(ds: Dataset, r: DateRange, s: AdminSettings): FinanceTota
   const refundsRub = good.filter((p) => p.refunded).reduce((n, p) => n + p.amount, 0)
   const apiRub = Math.round(ds.usage.filter((u) => u.day >= start && u.day < end).reduce((n, u) => n + u.textUsd + u.imageUsd, 0) * s.usdRub)
   const paid = good.filter((p) => !p.refunded && p.amount > 0)
-  const payers = new Set(paid.map((p) => p.userId))
+  const payers = new Set(paid.map((p) => p.userId).filter(person))
   const grossRub = revenueRub - apiRub
   return {
     revenueRub,

@@ -4,7 +4,7 @@
  */
 import type { AdminSettings, AnalyticsReport, CohortRow, DateRange, DayStats, UserDetail } from '../api/types'
 import { DAY, isoDay } from '../range'
-import { currentSub, daysOf, DEMO_PLANS, loginsOf, net, ok, paymentRow, userRow, windowOf, type Dataset } from './dataset'
+import { currentSub, daysOf, DELETED, DEMO_PLANS, loginsOf, net, ok, paymentRow, userRow, windowOf, type Dataset } from './dataset'
 
 const round = (n: number, k = 1) => Math.round(n * 10 ** k) / 10 ** k
 const pctOf = (a: number, b: number) => (b ? round((a / b) * 100) : 0)
@@ -39,7 +39,8 @@ export function analyticsReport(ds: Dataset, r: DateRange, s: AdminSettings): An
     x.apiRub += (u.textUsd + u.imageUsd) * s.usdRub
     x.requests += u.requests
     x.generations += u.generations
-    if (u.requests) x.users.add(u.userId)
+    // обезличенные расходы удалённых считаются в суммах, но не как один «активный пользователь»
+    if (u.requests && u.userId !== DELETED) x.users.add(u.userId)
   }
   for (const u of ds.users) {
     const x = at(u.registeredAt)
@@ -61,7 +62,7 @@ export function analyticsReport(ds: Dataset, r: DateRange, s: AdminSettings): An
   const paidCount = new Map<string, number>()
   const firstPaid = new Map<string, number>()
   for (const p of ds.payments) {
-    if (!ok(p) || p.refunded || p.amount <= 0) continue
+    if (!ok(p) || p.refunded || p.amount <= 0 || p.userId === DELETED) continue
     paidCount.set(p.userId, (paidCount.get(p.userId) ?? 0) + 1)
     firstPaid.set(p.userId, Math.min(firstPaid.get(p.userId) ?? Infinity, p.at))
   }

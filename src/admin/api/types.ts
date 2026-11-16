@@ -265,5 +265,19 @@ export interface AuditEntry {
     | 'edit_sub'
     | 'edit_user'
     | 'logout_user'
+    | 'admin_added'
+    | 'invite_failed'
   detail?: string
+  /** Кто из администраторов сделал (для действий после входа). */
+  by?: string
+}
+
+/** Приглашение администратора: что показать на странице подключения. */
+export interface InviteInfo {
+  login: string
+  /** TOTP-секрет base32 - для ручного ввода в приложение-аутентификатор. */
+  secret: string
+  /** otpauth://… - для QR-кода и открытия на телефоне. */
+  uri: string
+  expiresAt: ISODate
 }

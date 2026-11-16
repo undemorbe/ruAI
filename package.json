@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:api": "VITE_API_URL=/api VITE_USE_MOCKS=false vite --port 5194 --strictPort",
     "dev:admin": "VITE_ADMIN_MOCKS=true vite --config vite.admin.config.ts",
+    "dev:admin:db": "ADMIN_DEV_DB=1 vite --config vite.admin.config.ts",
     "build": "vue-tsc -b && vite build",
     "build:admin": "vue-tsc -b && vite build --config vite.admin.config.ts",
     "preview": "vite preview",

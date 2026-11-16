@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { adminApi } from '../api'
+import { DELETED } from '../demo/dataset'
 import { date, dateTime, num, PLAN_LABEL, rub, TIER_SHORT } from '../format'
 import { userCard, useReport } from '../state'
 import Panel from '../ui/Panel.vue'
@@ -55,7 +56,10 @@ const daysLeft = (iso: string) => Math.max(0, Math.ceil((Date.parse(iso) - Date.
           <tbody>
             <tr v-for="x in p.recent" :key="x.id">
               <td>{{ dateTime(x.at) }}</td>
-              <td><button class="link" @click="userCard = x.userId">{{ x.login }}</button></td>
+              <td>
+                <span v-if="x.userId === DELETED" class="muted">{{ x.login }}</span>
+                <button v-else class="link" @click="userCard = x.userId">{{ x.login }}</button>
+              </td>
               <td><span class="tag" :class="{ 'tag--media': x.tier === 'media' }">{{ TIER_SHORT[x.tier] }}</span> {{ PLAN_LABEL[x.planId] }}</td>
               <td class="r">{{ rub(x.amount) }}</td>
               <td>

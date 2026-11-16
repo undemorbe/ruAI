@@ -9,6 +9,7 @@ import type {
   PlanTier,
   FinanceReport,
   ImagesReport,
+  InviteInfo,
   Overview,
   PaymentsReport,
   SubEdit,
@@ -28,6 +29,10 @@ export interface AdminService {
   session(): Promise<AdminSession | null>
   login(input: { login: string; password: string; code: string }): Promise<AdminSession>
   logout(): Promise<void>
+  /** Приглашение по одноразовой ссылке (без сессии); недействительное или истёкшее - 404. */
+  inviteInfo(token: string): Promise<InviteInfo>
+  /** Создать аккаунт по приглашению: пароль от 14 символов и первый код из приложения. */
+  acceptInvite(input: { token: string; password: string; code: string }): Promise<{ login: string }>
   overview(r: DateRange): Promise<Overview>
   analytics(r: DateRange): Promise<AnalyticsReport>
   payments(r: DateRange): Promise<PaymentsReport>
