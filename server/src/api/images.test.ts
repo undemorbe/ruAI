@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { grantSubscription } from './billing.ts'
 import { probe, sanitize, sniff, stripMetadata } from './images.ts'
+import { readSettings, writeSettings } from './ledger.ts'
 import { ORIGIN, setup } from './testkit.ts'
 
 const seg = (marker: number, payload: Buffer) => {
@@ -175,28 +176,116 @@ test('анализ фото: картинка уходит в модель то�
   assert.equal(t.files.read(ref.id), null)
 })
 
-test('генерация: картинка проверяется, сохраняется, считается отдельно; пустой результат не списывается', async () => {
+test('генерация: картинка от инструмента проверяется, сохраняется, считается отдельно; пустой результат не списывается', async () => {
   const t = setup()
   const userId = await t.register()
   grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
-  t.llm.imageResult = { images: [png(512, 512), Buffer.from('not an image')], text: 'Готово', usage: { tokensIn: 10, tokensOut: 1000, costUsd: 0.04 } }
+  t.llm.agent = [
+    { type: 'image', data: png(512, 512) },
+    { type: 'image', data: png(64, 64) },
+    { type: 'text', text: 'Готово' },
+    { type: 'end', finish: 'stop', usage: { tokensIn: 10, tokensOut: 1000, costUsd: 0.04 } },
+  ]
   const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'кот в шляпе', mode: 'image' })).body)
   assert.deepEqual(
     ev.map((e) => e.type),
-    ['chat', 'image', 'done'],
+    ['chat', 'image', 'delta', 'done'],
+    'одна генерация на сообщение',
   )
-  const done = ev.at(-1) as { message: { images: { source: string }[] }; usage: { generationsUsed: number } }
+  const done = ev.at(-1) as { message: { images: { source: string; width: number }[] }; usage: { generationsUsed: number } }
   assert.equal(done.message.images.length, 1)
   assert.equal(done.message.images[0]!.source, 'generated')
+  assert.equal(done.message.images[0]!.width, 512)
   assert.equal(done.usage.generationsUsed, 1)
-  assert.equal(t.llm.calls[0]!.model, 'm/image')
+  const call = t.llm.calls[0]!
+  assert.equal(call.model, 'm/media', 'просьбу обрабатывает модель чата')
+  assert.deepEqual(call.imageTool, { model: 'm/image' }, 'рисует модель картинок через инструмент')
+  assert.equal(call.forceImage, true)
 
   t.clock.t += 61_000
-  t.llm.imageResult = { images: [], text: '', usage: { tokensIn: 10, tokensOut: 0, costUsd: 0.002 } }
+  t.llm.agent = [{ type: 'image', data: Buffer.from('not an image') }, { type: 'end', finish: 'stop', usage: { tokensIn: 10, tokensOut: 0, costUsd: 0.002 } }]
   const ev2 = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'ещё', mode: 'image' })).body)
   assert.equal(ev2.at(-1)!.type, 'error')
   const sub = t.db.get<{ gen_used: number; total_used: number; spent_usd: number }>('SELECT gen_used, total_used, spent_usd FROM subscriptions WHERE tier = ?', 'media')!
   assert.equal(sub.gen_used, 1)
   assert.equal(sub.total_used, 1)
   assert.equal(Math.round(sub.spent_usd * 1000), 42, 'фактический расход учтён даже без результата')
+})
+
+test('«Нарисуй осла» обычным сообщением: модель чата сама вызывает генерацию, генерация списывается по факту', async () => {
+  const t = setup()
+  const userId = await t.register()
+  grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
+  t.llm.agent = [
+    { type: 'text', text: 'Вот осёл:' },
+    { type: 'image', data: png(256, 256) },
+    { type: 'text', text: ' ![осёл](data:image/png;base64,AAAA)' },
+    { type: 'end', finish: 'stop', usage: { tokensIn: 30, tokensOut: 40, costUsd: 0.05 } },
+  ]
+  const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'Нарисуй осла' })).body)
+  assert.deepEqual(
+    ev.map((e) => e.type),
+    ['chat', 'delta', 'image', 'delta', 'done'],
+  )
+  const done = ev.at(-1) as { message: { content: string; images: unknown[] }; usage: { generationsUsed: number; totalUsed: number } }
+  assert.equal(done.message.content, 'Вот осёл:', 'data:URL из текста вырезан')
+  assert.equal(done.message.images.length, 1)
+  assert.equal(done.usage.generationsUsed, 1)
+  assert.equal(done.usage.totalUsed, 1)
+  const call = t.llm.calls[0]!
+  assert.equal(call.api, 'responses')
+  assert.deepEqual(call.imageTool, { model: 'm/image' })
+  assert.equal(call.forceImage, false)
+  assert.match(call.instructions!, /инструмент/)
+  assert.equal(t.db.get<{ kind: string }>('SELECT kind FROM usage_events')!.kind, 'image', 'в отчётах это генерация')
+  const chatId = (ev[0] as { chat: { id: string } }).chat.id
+  const msgs = (await t.req('GET', `/api/chats/${chatId}/messages`)).json() as { content: string; images?: unknown[] }[]
+  assert.equal(msgs[1]!.images!.length, 1, 'картинка в том же чате')
+
+  // обычный вопрос: инструмент доступен, но не вызван - генерация не списана
+  t.clock.t += 61_000
+  t.llm.agent = null
+  await t.req('POST', '/api/chats/messages', { chatId, content: 'Сколько живут ослы?' })
+  const sub = t.db.get<{ gen_used: number; total_used: number }>('SELECT gen_used, total_used FROM subscriptions')!
+  assert.deepEqual({ ...sub }, { gen_used: 1, total_used: 2 })
+  assert.equal(t.db.get<{ kind: string }>('SELECT kind FROM usage_events ORDER BY id DESC')!.kind, 'text')
+})
+
+test('режим «Создать изображение», а модель ответила только текстом: запрос списан, генерация возвращена', async () => {
+  const t = setup()
+  const userId = await t.register()
+  grantSubscription(t.db, { userId, tier: 'media', planId: 'week', now: t.clock.t })
+  t.llm.agent = [{ type: 'text', text: 'Не могу это нарисовать.' }, { type: 'end', finish: 'stop', usage: { tokensIn: 5, tokensOut: 5, costUsd: 0.001 } }]
+  const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'что-то запрещённое', mode: 'image' })).body)
+  assert.equal(ev.at(-1)!.type, 'done')
+  const sub = t.db.get<{ gen_used: number; total_used: number }>('SELECT gen_used, total_used FROM subscriptions')!
+  assert.deepEqual({ ...sub }, { gen_used: 0, total_used: 1 })
+  assert.equal(t.db.get<{ kind: string }>('SELECT kind FROM usage_events')!.kind, 'text')
+})
+
+test('лимит генераций исчерпан: обычное сообщение идёт без инструмента, модель объясняет', async () => {
+  const t = setup()
+  const userId = await t.register()
+  grantSubscription(t.db, { userId, tier: 'media', planId: 'month', now: t.clock.t })
+  const s = readSettings(t.db)
+  writeSettings(t.db, { ...s, generationLimits: { ...s.generationLimits, month: 0 } })
+  t.llm.agent = [{ type: 'image', data: png(64, 64) }, { type: 'text', text: 'Сейчас не могу рисовать.' }, { type: 'end', finish: 'stop', usage: null }]
+  const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId: null, content: 'Нарисуй осла' })).body)
+  assert.equal(ev.at(-1)!.type, 'done')
+  const call = t.llm.calls[0]!
+  assert.equal(call.imageTool, null)
+  assert.match(call.instructions!, /недоступно/)
+  assert.equal(t.db.get<{ gen_used: number }>('SELECT gen_used FROM subscriptions')!.gen_used, 1, 'картинка без инструмента всё равно учтена по факту')
+})
+
+test('текстовый тариф: GPT-OSS через chat/completions, без инструмента картинок', async () => {
+  const t = setup()
+  const userId = await t.register()
+  grantSubscription(t.db, { userId, tier: 'text', planId: 'week', now: t.clock.t })
+  await t.req('POST', '/api/chats/messages', { chatId: null, content: 'Нарисуй осла' })
+  const call = t.llm.calls[0]!
+  assert.equal(call.api, 'chat')
+  assert.equal(call.model, 'm/text')
+  assert.equal(call.messages[0]!.role, 'system')
+  assert.match(String(call.messages[0]!.content), /тарифе с фото и изображениями/)
 })

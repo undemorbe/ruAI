@@ -7,7 +7,7 @@ import { buildApiApp, type ApiDeps } from './app.ts'
 import type { ApiConfig } from './config.ts'
 import { Db } from './db.ts'
 import { ImageFiles } from './images.ts'
-import type { Llm, LlmChunk, LlmMessage } from './openrouter.ts'
+import type { AgentChunk, AgentRequest, Llm, LlmChunk, LlmMessage } from './openrouter.ts'
 import type { TgNotifier } from './tg/notify.ts'
 
 export const ORIGIN = 'https://ru-chatgpt.test'
@@ -32,10 +32,11 @@ export const testConfig = (over: Partial<ApiConfig> = {}): ApiConfig => ({
 })
 
 export interface FakeLlm extends Llm {
-  calls: { model: string; messages: LlmMessage[] }[]
-  /** Что вернёт следующий вызов stream. */
+  calls: { model: string; messages: LlmMessage[]; api: 'chat' | 'responses'; instructions?: string; imageTool?: AgentRequest['imageTool']; forceImage?: boolean }[]
+  /** Что вернёт следующий вызов stream (текстовый тариф). */
   script: LlmChunk[] | Error
-  imageResult: { images: Buffer[]; text: string; usage: { tokensIn: number; tokensOut: number; costUsd: number } | null } | Error
+  /** Что вернёт следующий вызов respond (расширенный тариф); null: тот же script. */
+  agent: AgentChunk[] | Error | null
   /** Пауза между кусками (для проверки busy). */
   gate: Promise<void> | null
 }
@@ -48,20 +49,24 @@ export function fakeLlm(): FakeLlm {
       { type: 'text', text: ', мир' },
       { type: 'end', finish: 'stop', usage: { tokensIn: 100, tokensOut: 20, costUsd: 0.001 } },
     ],
-    imageResult: { images: [], text: '', usage: null },
+    agent: null,
     gate: null,
     async *stream(req) {
-      f.calls.push({ model: req.model, messages: req.messages })
+      f.calls.push({ model: req.model, messages: req.messages, api: 'chat' })
       if (f.script instanceof Error) throw f.script
       for (const ch of f.script) {
         if (f.gate) await f.gate
         yield ch
       }
     },
-    async image(req) {
-      f.calls.push({ model: req.model, messages: req.messages })
-      if (f.imageResult instanceof Error) throw f.imageResult
-      return f.imageResult
+    async *respond(req) {
+      f.calls.push({ model: req.model, messages: req.messages, api: 'responses', instructions: req.instructions, imageTool: req.imageTool, forceImage: req.forceImage })
+      const script = f.agent ?? f.script
+      if (script instanceof Error) throw script
+      for (const ch of script) {
+        if (f.gate) await f.gate
+        yield ch
+      }
     },
   }
   return f

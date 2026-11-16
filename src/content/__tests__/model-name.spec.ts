@@ -21,6 +21,8 @@ describe('model name: ChatGPT-6.1 Astra in the app, plain ChatGPT on the main pa
     for (const t of mainTexts) {
       expect(t).not.toContain(MODEL_NAME)
       expect(t).not.toMatch(/Astra|6\.1/)
+      // внутренние модели (GPT-OSS, GPT-5.6 Luna, GPT Image Flare) пользователю не называем
+      expect(t).not.toMatch(/Luna|GPT-5|OSS|Flare/)
     }
   })
 })

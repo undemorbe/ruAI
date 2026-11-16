@@ -49,8 +49,10 @@ export const K = {
  * На сервере берётся фактическая стоимость (`usage.cost`) из ответа OpenRouter.
  */
 export const COST = {
-  text: { input: 0.03, output: 0.15 },
-  media: { input: 1.25, output: 10 },
+  // GPT-OSS-20B и GPT-5.6 Luna по каталогу OpenRouter 16.11.2026
+  text: { input: 0.075, output: 0.3 },
+  media: { input: 0.2, output: 1.2 },
+  /** GPT Image 2.6 Flare, quality medium, 1024x1024: ~1100 токенов по $30/млн + описание от Luna. */
   imageGeneration: 0.04,
   /** Входные токены на одно фото при анализе. */
   photoTokens: 1100,
@@ -58,7 +60,8 @@ export const COST = {
 
 export const defaultSettings = (): AdminSettings => ({
   generationEnabled: true,
-  generationLimits: { week: null, month: null, quarter: null },
+  // генерации укладываются в бюджет подписки (~$0.045 за картинку вместе с работой модели чата)
+  generationLimits: { week: 50, month: 120, quarter: 250 },
   // по умолчанию 40% цены подписки; меняется в админке
   budgetsRub: {
     text: { week: 155, month: 395, quarter: 752 },
@@ -353,6 +356,14 @@ function activeSub(now = new Date()) {
 
 let inFlight = false
 
+/**
+ * Демо вместо решения модели: похоже ли сообщение на просьбу нарисовать.
+ * На сервере это решает сама модель чата (инструмент `openrouter:image_generation`).
+ */
+export function asksForImage(text: string): boolean {
+  return /нарису|изобрази|(сгенерир|создай|сделай|придумай)\S*\s+(мне\s+)?(картинк|изображен|рисун|арт|аватар|логотип|иллюстрац)/i.test(text)
+}
+
 export const mockChat: ChatService = {
   async list() {
     await sleep(80)
@@ -401,6 +412,9 @@ export const mockChat: ChatService = {
     const wait = rateWait(rate, now.getTime())
     if (wait > 0) throw refuse('rate_limit', wait)
     if (estimateTokens(payload.content) > LIMITS.inputTokens) throw refuse('too_long')
+    // расширенный тариф: модель чата сама решает рисовать (инструмент генерации), если генерация открыта
+    const genOpen = sub.tier === 'media' && settings.generationEnabled && (genLimit === null || sub.usage.generationsUsed < genLimit)
+    const drawing = wantsImage || (genOpen && asksForImage(payload.content))
     const stored = storage.get<Record<string, ImageRef>>(K.images, {})
     const attached = photos.map((id) => stored[id]).filter((x): x is ImageRef => !!x)
     if (attached.length !== photos.length) throw refuse('bad_image')
@@ -409,7 +423,7 @@ export const mockChat: ChatService = {
     const charge = (d: 1 | -1) => {
       sub.usage.totalUsed += d
       sub.usage.dailyUsed += d
-      if (wantsImage) sub.usage.generationsUsed += d
+      if (drawing) sub.usage.generationsUsed += d
       storage.set(K.user, user)
     }
     charge(1)
@@ -424,7 +438,7 @@ export const mockChat: ChatService = {
 
       let chat = chats.find((c) => c.id === payload.chatId)
       if (!chat) {
-        const title = payload.content.slice(0, 48) || (wantsImage ? 'Изображение' : attached.length ? 'Фото' : 'Новый чат')
+        const title = payload.content.slice(0, 48) || (drawing ? 'Изображение' : attached.length ? 'Фото' : 'Новый чат')
         chat = { id: uid('c_'), title, updatedAt: iso, model: sub.tier }
         chats.push(chat)
       }
@@ -439,8 +453,8 @@ export const mockChat: ChatService = {
 
       const replyId = uid('m_')
       const isContinue = payload.content.trim().toLowerCase() === CONTINUE_PROMPT.toLowerCase()
-      const truncated = !wantsImage && !isContinue && /подробн|полностью|целиком/i.test(payload.content)
-      const full = wantsImage
+      const truncated = !drawing && !isContinue && /подробн|полностью|целиком/i.test(payload.content)
+      const full = drawing
         ? attached.length
           ? 'Готово — отредактировал изображение по вашему описанию.'
           : 'Готово — вот изображение по вашему описанию.'
@@ -454,10 +468,10 @@ export const mockChat: ChatService = {
       const tokens = full.match(/\S+\s*|\s+/g) ?? [full]
       const images: ImageRef[] = []
 
-      await sleep(wantsImage ? 1400 : 450, signal)
+      await sleep(drawing ? 1400 : 450, signal)
       let text = ''
       try {
-        if (wantsImage) {
+        if (drawing) {
           const img = demoImage(payload.content || 'изображение')
           images.push(img)
           yield { type: 'image', messageId: replyId, image: img }

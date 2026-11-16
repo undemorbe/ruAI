@@ -21,6 +21,7 @@ import { newId, type Db } from './db.ts'
 import { ImageFiles, sanitize } from './images.ts'
 import { Refusal, readSettings, releaseStale, reserve, settle, usageOf, activeSub, type Kind } from './ledger.ts'
 import type { Llm, LlmMessage, LlmUsage, Part } from './openrouter.ts'
+import { stripImageUrls, systemPrompt, type ImageAccess } from './prompts.ts'
 import type { TgApi } from './tg/api.ts'
 import { TgBot } from './tg/bot.ts'
 import type { TgNotifier } from './tg/notify.ts'
@@ -41,10 +42,6 @@ export const STATUS: Record<LimitCode, number> = {
   model_off: 503,
   auth_required: 401,
 }
-
-const SYSTEM_PROMPT =
-  'Ты — полезный ассистент. Отвечай на языке пользователя, по делу и без воды. Для кода используй блоки Markdown. ' +
-  'Не выдумывай факты; если не уверен — скажи об этом.'
 
 /** Оценка, если OpenRouter не прислал стоимость (обрыв стрима): с запасом, чтобы бюджет не утекал. */
 const FALLBACK_PRICE: Record<PlanTier, { in: number; out: number }> = {
@@ -486,8 +483,15 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
         // модель не подключена: до резерва, чтобы запрос не списывался
         if (!llm) throw new Refusal('model_off')
 
+        // текстовый тариф: MODELS.text; расширенный: MODELS.media на все сообщения, картинки - её инструментом
         const sub0 = activeSub(db, u.id, now())
-        const model = kind === 'image' ? cfg.models.image : sub0?.tier === 'media' ? cfg.models.media : cfg.models.text
+        const media = sub0?.tier === 'media'
+        const model = media ? cfg.models.media : cfg.models.text
+        let access: ImageAccess = 'none'
+        if (media && sub0) {
+          const u0 = usageOf(sub0, readSettings(db), now())
+          access = u0.generationEnabled && (u0.generationsLimit === null || u0.generationsUsed < u0.generationsLimit) ? 'on' : 'off'
+        }
         const res = reserve(db, {
           userId: u.id,
           kind,
@@ -529,7 +533,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           raw.on('close', () => {
             if (!raw.writableEnded) abort.abort()
           })
-          const timeout = setTimeout(() => abort.abort(), kind === 'image' ? 180_000 : 150_000)
+          const timeout = setTimeout(() => abort.abort(), access === 'on' ? 180_000 : 150_000)
 
           const replyId = newId('m')
           let text = ''
@@ -549,91 +553,66 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
               },
             }))
 
-            if (kind === 'image') {
-              const prompt = content || 'Улучши это изображение'
-              const r = await llm.image({
-                model,
-                messages: [
-                  {
-                    role: 'user',
-                    content: [{ type: 'text', text: prompt }, ...photoParts],
-                  },
-                ],
-                user: userTag,
-                signal: abort.signal,
-              })
-              usage = r.usage
-              text = r.text.slice(0, 4000)
-              for (const b of r.images.slice(0, 4)) {
-                const img = sanitize(b)
-                if (!img) continue
-                const id = newId('img')
-                files.write(id, img.data)
-                db.run(
-                  "INSERT INTO images (id, user_id, chat_id, source, mime, width, height, bytes, created_at) VALUES (?, ?, ?, 'generated', ?, ?, ?, ?, ?)",
-                  id,
-                  u.id,
-                  chatId,
-                  img.mime,
-                  img.width,
-                  img.height,
-                  img.data.length,
-                  now(),
-                )
-                const ref = imageRef({
-                  id,
-                  user_id: u.id,
-                  chat_id: chatId,
-                  message_id: null,
-                  source: 'generated',
-                  mime: img.mime,
-                  width: img.width,
-                  height: img.height,
-                })
-                produced.push(ref)
-                send({ type: 'image', messageId: replyId, image: ref })
-              }
-              if (!produced.length) errorCode = 'no_image'
-            } else {
-              const history = db
-                .all<MessageRow>('SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?', chatId, LIMITS.contextMessages)
-                .reverse()
-                .filter((m) => m.content)
-              const ctx = buildContext(history)
-              const messages: LlmMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }]
-              ctx.forEach((m, i) => {
-                const last = i === ctx.length - 1
-                messages.push(
-                  last && photoParts.length
-                    ? {
-                        role: 'user',
-                        content: [{ type: 'text', text: m.content || 'Что на фото?' }, ...photoParts],
-                      }
-                    : { role: m.role, content: m.content },
-                )
-              })
-              if (!ctx.length || ctx[ctx.length - 1]!.role !== 'user')
-                messages.push({
-                  role: 'user',
-                  content: [{ type: 'text', text: content || 'Что на фото?' }, ...photoParts],
-                })
-              for await (const ch of llm.stream({
-                model,
-                messages,
-                maxTokens: LIMITS.outputTokens,
-                user: userTag,
-                signal: abort.signal,
-              })) {
-                if (ch.type === 'text') {
-                  text += ch.text
-                  send({ type: 'delta', messageId: replyId, text: ch.text })
-                } else {
-                  usage = ch.usage
-                  finish = ch.finish
-                }
-              }
-              if (!text) errorCode = 'empty'
+            const history = db
+              .all<MessageRow>('SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?', chatId, LIMITS.contextMessages)
+              .reverse()
+              .filter((m) => m.content)
+            const ctx = buildContext(history)
+            const messages: LlmMessage[] = []
+            const fallback = content || (kind === 'image' ? 'Улучши это изображение' : 'Что на фото?')
+            ctx.forEach((m, i) => {
+              const last = i === ctx.length - 1
+              messages.push(last && photoParts.length ? { role: 'user', content: [{ type: 'text', text: m.content || fallback }, ...photoParts] } : { role: m.role, content: m.content })
+            })
+            if (!ctx.length || ctx[ctx.length - 1]!.role !== 'user') messages.push({ role: 'user', content: [{ type: 'text', text: fallback }, ...photoParts] })
+
+            const saveImage = (b: Buffer) => {
+              const img = sanitize(b)
+              if (!img) return
+              const id = newId('img')
+              files.write(id, img.data)
+              db.run(
+                "INSERT INTO images (id, user_id, chat_id, source, mime, width, height, bytes, created_at) VALUES (?, ?, ?, 'generated', ?, ?, ?, ?, ?)",
+                id,
+                u.id,
+                chatId,
+                img.mime,
+                img.width,
+                img.height,
+                img.data.length,
+                now(),
+              )
+              const ref = imageRef({ id, user_id: u.id, chat_id: chatId, message_id: null, source: 'generated', mime: img.mime, width: img.width, height: img.height })
+              produced.push(ref)
+              send({ type: 'image', messageId: replyId, image: ref })
             }
+
+            const chunks = media
+              ? llm.respond({
+                  model,
+                  instructions: systemPrompt(access),
+                  messages,
+                  maxTokens: LIMITS.outputTokens,
+                  user: userTag,
+                  signal: abort.signal,
+                  imageTool: access === 'on' ? { model: cfg.models.image } : null,
+                  forceImage: kind === 'image',
+                })
+              : llm.stream({ model, messages: [{ role: 'system', content: systemPrompt('none') }, ...messages], maxTokens: LIMITS.outputTokens, user: userTag, signal: abort.signal })
+            for await (const ch of chunks) {
+              if (ch.type === 'text') {
+                text += ch.text
+                send({ type: 'delta', messageId: replyId, text: ch.text })
+              } else if (ch.type === 'image') {
+                // одна генерация на сообщение (столько же списывает счётчик)
+                if (!produced.length) saveImage(ch.data)
+              } else {
+                usage = ch.usage
+                finish = ch.finish
+              }
+            }
+            text = stripImageUrls(text)
+            if (!text && !produced.length) errorCode = kind === 'image' ? 'no_image' : 'empty'
           } catch (e) {
             errorCode = abort.signal.aborted ? 'aborted' : 'upstream'
             if (!abort.signal.aborted) req.log.warn({ err: (e as Error).message.slice(0, 300) }, 'llm failed')
@@ -645,9 +624,8 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           const promptTokens = estimateTokens(content) + photos.length * PHOTO_TOKENS
           const cost =
             usage?.costUsd ||
-            (kind === 'image'
-              ? produced.length * FALLBACK_IMAGE_USD
-              : (promptTokens * FALLBACK_PRICE[tier].in + estimateTokens(text) * FALLBACK_PRICE[tier].out) * (ok || errorCode === 'aborted' ? 1 : 0))
+            produced.length * FALLBACK_IMAGE_USD +
+              (promptTokens * FALLBACK_PRICE[tier].in + estimateTokens(text) * FALLBACK_PRICE[tier].out) * (ok || errorCode === 'aborted' ? 1 : 0)
           const truncated = finish === 'length'
           let message: Message | null = null
           if (ok) {
@@ -681,6 +659,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
             tokensOut: usage?.tokensOut ?? estimateTokens(text),
             costUsd: cost,
             ...(ok ? {} : { errorCode }),
+            ...(media ? { generated: produced.length > 0 } : {}),
           })
           settled = true
           busy.delete(u.id)

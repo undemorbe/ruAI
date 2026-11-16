@@ -8,19 +8,22 @@ export interface ModelOption {
 }
 
 /**
- * Модели по тарифам. Запросы идут через OpenRouter, ключ — только на сервере;
- * модель выбирает сервер по тарифу подписки.
+ * Модели. Запросы идут через OpenRouter, ключ только на сервере; модель выбирает сервер по тарифу подписки:
+ *   - текстовый тариф: `MODELS.text` (GPT-OSS-20B), только текстовые сообщения;
+ *   - расширенный тариф: `MODELS.media` (GPT-5.6 Luna) на все сообщения, включая анализ фото;
+ *   - картинки: `IMAGE_MODEL_ID` (GPT Image 2.6 Flare) через серверный инструмент OpenRouter
+ *     `openrouter:image_generation`: Luna сама решает по просьбе пользователя, что и когда рисовать.
  * `name` - то, что видит пользователь (чат, тарифы, оформление); главная страница пишет просто «ChatGPT».
  */
 export const MODEL_NAME = 'ChatGPT-6.1 Astra'
 
+// id сверены с каталогом OpenRouter (GET /api/v1/models) 16.11.2026.
 export const MODELS = {
   text: { id: 'openai/gpt-oss-20b', name: MODEL_NAME, hint: 'Тексты, учёба, код' },
-  // id сверены с каталогом OpenRouter (GET /api/v1/models) 16.11.2026.
   media: { id: 'openai/gpt-5.6-luna', name: MODEL_NAME, hint: 'Тексты, анализ фото и картинки' },
 } satisfies Record<'text' | 'media', ModelOption>
-/** Генерация и редактирование картинок (~$0.04 за изображение; фактическую цену присылает OpenRouter). */
-export const IMAGE_MODEL_ID = 'google/gemini-2.5-flash-image'
+/** Создание и редактирование картинок (инструмент `openrouter:image_generation`; фактическую цену присылает OpenRouter). */
+export const IMAGE_MODEL_ID = 'openai/gpt-image-2.6-flare'
 
 /** Загрузка фото: форматы и размер (проверяет и сервер). */
 export const UPLOAD = { maxBytes: 10 * 1024 * 1024, maxFiles: 4, accept: 'image/jpeg,image/png,image/webp,image/heic,image/heif' }

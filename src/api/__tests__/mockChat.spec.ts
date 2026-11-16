@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { LEGAL_VERSION } from '@/content/legal/operator'
 import { ApiError } from '../http'
 import type { ChatStreamEvent, LimitCode, PlanId, PlanTier, SendMessagePayload } from '../types'
-import { K, mockBilling, mockChat, newSubscription } from '../mocks'
+import { K, asksForImage, mockBilling, mockChat, newSubscription } from '../mocks'
 
 const USER_KEY = 'ruai.mock.user'
 
@@ -178,4 +178,39 @@ describe('mock image generation', () => {
     // обычный текст при исчерпанных генерациях работает
     expect(await refusal('Привет')).toBeUndefined()
   }, 20000)
+
+  it('«Нарисуй осла» без переключателя: в тарифе с изображениями рисует сама модель чата', async () => {
+    subscribe('week', {}, 'media')
+    const events = await collect('Нарисуй осла')
+    expect(events.some((e) => e.type === 'image')).toBe(true)
+    const done = events.at(-1)!
+    expect(done.type === 'done' && done.usage).toMatchObject({ totalUsed: 1, generationsUsed: 1 })
+
+    // обычный вопрос генерацию не тратит
+    localStorage.setItem(K.rate, '[]')
+    const plain = await collect('Сколько живут ослы?')
+    expect(plain.some((e) => e.type === 'image')).toBe(false)
+  }, 20000)
+
+  it('без генерации (текстовый тариф или лимит) просьба нарисовать получает обычный ответ, не отказ', async () => {
+    subscribe('week', {}, 'text')
+    const events = await collect('Нарисуй осла')
+    expect(events.some((e) => e.type === 'image')).toBe(false)
+    expect(events.at(-1)!.type).toBe('done')
+
+    localStorage.setItem(K.settings, JSON.stringify({ generationEnabled: true, generationLimits: { week: 1, month: null, quarter: null } }))
+    subscribe('week', { generationsUsed: 1 }, 'media')
+    const limited = await collect('Нарисуй осла')
+    expect(limited.some((e) => e.type === 'image')).toBe(false)
+    const done = limited.at(-1)!
+    expect(done.type === 'done' && done.usage).toMatchObject({ generationsUsed: 1 })
+  }, 20000)
 })
+
+describe('asksForImage', () => {
+  it('узнаёт просьбы нарисовать и не трогает обычные вопросы', () => {
+    for (const t of ['Нарисуй осла', 'изобрази закат', 'Сгенерируй картинку с котом', 'сделай мне логотип', 'Создай изображение моря']) expect(asksForImage(t)).toBe(true)
+    for (const t of ['Сколько живут ослы?', 'Сделай план на неделю', 'Что на фото?', 'Создай таблицу']) expect(asksForImage(t)).toBe(false)
+  })
+})
+

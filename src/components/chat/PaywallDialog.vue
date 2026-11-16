@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { LimitCode } from '@/api'
 import Icon from '@/components/ui/Icon.vue'
 import UnprotectedBanner from '@/components/ui/UnprotectedBanner.vue'
+import { MODEL_NAME } from '@/config/app'
+import { PRICES } from '@/content/plans'
 import { nextMskMidnight } from '@/lib/limits'
 
 /** Диалог при отказе по лимитам: нет подписки, закончился период или суточный лимит. */
@@ -26,7 +28,7 @@ const copy = computed(() => {
     case 'media_required':
       return {
         title: 'Фото и картинки — в тарифе с изображениями',
-        text: 'GPT-5.6 Luna разбирает фото и рисует изображения по описанию. От 788 ₽ за 7 дней, история чатов сохраняется.',
+        text: `${MODEL_NAME} разбирает фото и рисует изображения по описанию. От ${PRICES.media.week} ₽ за 7 дней, история чатов сохраняется.`,
         pay: true,
         tier: 'media' as const,
       }

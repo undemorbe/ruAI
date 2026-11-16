@@ -15,6 +15,25 @@ export interface LlmUsage {
   costUsd: number
 }
 export type LlmChunk = { type: 'text'; text: string } | { type: 'end'; finish: string | null; usage: LlmUsage | null }
+/** Ответ оркестратора: текст, картинки от инструмента генерации, итог. */
+export type AgentChunk = LlmChunk | { type: 'image'; data: Buffer }
+
+/** Серверный инструмент OpenRouter: модель-оркестратор сама решает, когда рисовать. */
+export const IMAGE_TOOL = 'openrouter:image_generation'
+
+export interface AgentRequest {
+  model: string
+  /** Системная инструкция (уходит в `instructions`). */
+  instructions: string
+  messages: LlmMessage[]
+  maxTokens: number
+  user: string
+  signal: AbortSignal
+  /** null: генерация недоступна, инструмент не передаём. */
+  imageTool: { model: string } | null
+  /** Пользователь явно попросил картинку: вызов инструмента обязателен. */
+  forceImage?: boolean
+}
 
 export class LlmError extends Error {
   readonly status: number
@@ -26,16 +45,63 @@ export class LlmError extends Error {
 
 export interface Llm {
   stream(req: { model: string; messages: LlmMessage[]; maxTokens: number; user: string; signal: AbortSignal }): AsyncGenerator<LlmChunk>
-  image(req: { model: string; messages: LlmMessage[]; user: string; signal: AbortSignal }): Promise<{ images: Buffer[]; text: string; usage: LlmUsage | null }>
+  /** Responses API с инструментом `openrouter:image_generation` (расширенный тариф). */
+  respond(req: AgentRequest): AsyncGenerator<AgentChunk>
 }
 
 type Fetch = typeof fetch
-const URL_ = 'https://openrouter.ai/api/v1/chat/completions'
+const BASE = 'https://openrouter.ai/api/v1'
 
 function usageOf(u: unknown): LlmUsage | null {
   if (!u || typeof u !== 'object') return null
   const o = u as Record<string, unknown>
-  return { tokensIn: Number(o.prompt_tokens) || 0, tokensOut: Number(o.completion_tokens) || 0, costUsd: Number(o.cost) || 0 }
+  return {
+    tokensIn: Number(o.prompt_tokens ?? o.input_tokens) || 0,
+    tokensOut: Number(o.completion_tokens ?? o.output_tokens) || 0,
+    costUsd: Number(o.cost) || 0,
+  }
+}
+
+/** Только растровые data:URL; внешние ссылки и SVG не принимаем. */
+export function dataImage(url: unknown): Buffer | null {
+  const m = typeof url === 'string' ? /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(url) : null
+  return m ? Buffer.from(m[2]!, 'base64') : null
+}
+
+/** Сообщения чата в формат `input` Responses API. */
+export function toResponsesInput(messages: LlmMessage[]) {
+  return messages.map((m) => {
+    if (typeof m.content === 'string') return { role: m.role, content: m.content }
+    return {
+      role: m.role,
+      content: m.content.map((p) => (p.type === 'text' ? { type: 'input_text', text: p.text } : { type: 'input_image', image_url: p.image_url.url, detail: 'auto' })),
+    }
+  })
+}
+
+/** Построчный разбор SSE: отдаёт JSON каждой строки `data:`. */
+async function* sseJson(body: ReadableStream<Uint8Array>): AsyncGenerator<Record<string, unknown>> {
+  const reader = body.getReader()
+  const dec = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buf.indexOf('\n')) !== -1) {
+      const line = buf.slice(0, nl).trim()
+      buf = buf.slice(nl + 1)
+      if (!line.startsWith('data:')) continue // комментарии «: OPENROUTER PROCESSING», строки event:
+      const data = line.slice(5).trim()
+      if (data === '[DONE]') continue
+      try {
+        yield JSON.parse(data) as Record<string, unknown>
+      } catch {
+        continue
+      }
+    }
+  }
 }
 
 export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm {
@@ -45,8 +111,8 @@ export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm 
     'HTTP-Referer': referer,
     'X-Title': 'ruAI',
   }
-  async function post(body: object, signal: AbortSignal) {
-    const res = await f(URL_, { method: 'POST', headers, body: JSON.stringify(body), signal })
+  async function post(path: string, body: object, signal: AbortSignal) {
+    const res = await f(BASE + path, { method: 'POST', headers, body: JSON.stringify(body), signal })
     if (!res.ok) {
       // тело ошибки не пробрасываем пользователю: там бывают детали аккаунта
       const detail = (await res.text().catch(() => '')).slice(0, 300)
@@ -57,51 +123,74 @@ export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm 
 
   return {
     async *stream({ model, messages, maxTokens, user, signal }) {
-      const res = await post({ model, messages, stream: true, max_tokens: maxTokens, usage: { include: true }, user }, signal)
+      const res = await post('/chat/completions', { model, messages, stream: true, max_tokens: maxTokens, usage: { include: true }, user }, signal)
       if (!res.body) throw new LlmError(502, 'openrouter: empty body')
-      const reader = res.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
       let finish: string | null = null
       let usage: LlmUsage | null = null
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        let nl: number
-        while ((nl = buf.indexOf('\n')) !== -1) {
-          const line = buf.slice(0, nl).trim()
-          buf = buf.slice(nl + 1)
-          if (!line.startsWith('data:')) continue // комментарии «: OPENROUTER PROCESSING»
-          const data = line.slice(5).trim()
-          if (data === '[DONE]') continue
-          let j: Record<string, unknown>
-          try {
-            j = JSON.parse(data) as Record<string, unknown>
-          } catch {
-            continue
-          }
-          if (j.error) throw new LlmError(502, `openrouter stream error: ${JSON.stringify(j.error).slice(0, 300)}`)
-          const choice = (j.choices as { delta?: { content?: string }; finish_reason?: string | null }[] | undefined)?.[0]
-          const text = choice?.delta?.content
-          if (text) yield { type: 'text', text }
-          if (choice?.finish_reason) finish = choice.finish_reason
-          if (j.usage) usage = usageOf(j.usage)
-        }
+      for await (const j of sseJson(res.body)) {
+        if (j.error) throw new LlmError(502, `openrouter stream error: ${JSON.stringify(j.error).slice(0, 300)}`)
+        const choice = (j.choices as { delta?: { content?: string }; finish_reason?: string | null }[] | undefined)?.[0]
+        const text = choice?.delta?.content
+        if (text) yield { type: 'text', text }
+        if (choice?.finish_reason) finish = choice.finish_reason
+        if (j.usage) usage = usageOf(j.usage)
       }
       yield { type: 'end', finish, usage }
     },
 
-    async image({ model, messages, user, signal }) {
-      const res = await post({ model, messages, modalities: ['image', 'text'], usage: { include: true }, user }, signal)
-      const j = (await res.json()) as { choices?: { message?: { content?: string; images?: { image_url?: { url?: string } }[] } }[]; usage?: unknown }
-      const msg = j.choices?.[0]?.message
-      const images: Buffer[] = []
-      for (const im of msg?.images ?? []) {
-        const m = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(im.image_url?.url ?? '')
-        if (m) images.push(Buffer.from(m[2]!, 'base64'))
+    async *respond({ model, instructions, messages, maxTokens, user, signal, imageTool, forceImage }) {
+      const body: Record<string, unknown> = {
+        model,
+        instructions,
+        input: toResponsesInput(messages),
+        stream: true,
+        max_output_tokens: maxTokens,
+        user,
       }
-      return { images, text: typeof msg?.content === 'string' ? msg.content : '', usage: usageOf(j.usage) }
+      if (imageTool) {
+        // quality medium: auto может выбрать high, это в разы дороже при той же пользе в чате
+        body.tools = [{ type: IMAGE_TOOL, parameters: { model: imageTool.model, quality: 'medium' } }]
+        body.tool_choice = forceImage ? 'required' : 'auto'
+        // одна генерация на сообщение: так совпадает со счётчиком генераций и бюджетом
+        body.max_tool_calls = 1
+      }
+      const res = await post('/responses', body, signal)
+      if (!res.body) throw new LlmError(502, 'openrouter: empty body')
+      const seen = new Set<string>()
+      let finish: string | null = null
+      let usage: LlmUsage | null = null
+      const pick = (item: unknown): Buffer | null => {
+        const it = item as { type?: string; id?: string; result?: unknown; imageUrl?: unknown } | null
+        if (it?.type !== IMAGE_TOOL) return null
+        // id может не прийти: тогда ключ по хвосту данных (один и тот же элемент бывает и в item.done, и в completed)
+        const key = it.id ?? String(it.result ?? it.imageUrl ?? '').slice(-96)
+        if (seen.has(key)) return null
+        const data = dataImage(it.result) ?? dataImage(it.imageUrl)
+        if (data) seen.add(key)
+        return data
+      }
+      for await (const j of sseJson(res.body)) {
+        const type = String(j.type ?? '')
+        if (j.error || type === 'error' || type === 'response.failed') {
+          const err = j.error ?? (j.response as { error?: unknown } | undefined)?.error ?? type
+          throw new LlmError(502, `openrouter stream error: ${JSON.stringify(err).slice(0, 300)}`)
+        }
+        if ((type === 'response.output_text.delta' || type === 'response.content_part.delta') && typeof j.delta === 'string' && j.delta) {
+          yield { type: 'text', text: j.delta }
+        } else if (type === 'response.output_item.done') {
+          const data = pick(j.item)
+          if (data) yield { type: 'image', data }
+        } else if (type === 'response.completed' || type === 'response.done' || type === 'response.incomplete') {
+          const r = (j.response ?? {}) as { status?: string; usage?: unknown; output?: unknown[]; incomplete_details?: { reason?: string } | null }
+          for (const item of r.output ?? []) {
+            const data = pick(item)
+            if (data) yield { type: 'image', data }
+          }
+          usage = usageOf(r.usage) ?? usage
+          finish = r.status === 'incomplete' ? (r.incomplete_details?.reason === 'max_output_tokens' ? 'length' : (r.incomplete_details?.reason ?? 'incomplete')) : 'stop'
+        }
+      }
+      yield { type: 'end', finish, usage }
     },
   }
 }
@@ -120,8 +209,18 @@ export function stubLlm(): Llm {
       }
       yield { type: 'end', finish: 'stop', usage: { tokensIn: 50, tokensOut: 20, costUsd: 0.0001 } }
     },
-    async image() {
-      return { images: [png], text: 'Заглушка изображения', usage: { tokensIn: 10, tokensOut: 10, costUsd: 0.001 } }
+    async *respond({ messages, imageTool, forceImage }) {
+      const last = messages.at(-1)
+      const said = typeof last?.content === 'string' ? last.content : (last?.content.find((p) => p.type === 'text') as { text?: string } | undefined)?.text ?? ''
+      if (imageTool && (forceImage || /нарису|изобрази|сгенерир|картинк|draw/i.test(said))) {
+        await new Promise((r) => setTimeout(r, 300))
+        yield { type: 'image', data: png }
+      }
+      for (const w of `Локальная заглушка вместо модели. Вы написали: «${said.slice(0, 200)}».`.split(/(?<= )/)) {
+        await new Promise((r) => setTimeout(r, 25))
+        yield { type: 'text', text: w }
+      }
+      yield { type: 'end', finish: 'stop', usage: { tokensIn: 50, tokensOut: 20, costUsd: 0.001 } }
     },
   }
 }

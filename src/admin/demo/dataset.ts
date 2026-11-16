@@ -40,7 +40,8 @@ const DAY = 86_400_000
 
 export const defaultAdminSettings = (): AdminSettings => ({
   generationEnabled: true,
-  generationLimits: { week: null, month: null, quarter: null },
+  // генерации укладываются в бюджет подписки (~$0.045 за картинку вместе с работой модели чата)
+  generationLimits: { week: 50, month: 120, quarter: 250 },
   budgetsRub: {
     text: { week: 155, month: 395, quarter: 752 },
     media: { week: 315, month: 795, quarter: 1552 },
@@ -137,7 +138,7 @@ function rng(seed: number) {
 const NAMES = ['anna', 'dmitry', 'maria', 'igor', 'elena', 'artem', 'olga', 'pavel', 'kate', 'sergey', 'nikita', 'irina', 'max', 'alina', 'roman', 'vera']
 const DOMAINS = ['mail.ru', 'yandex.ru', 'gmail.com', 'bk.ru', 'inbox.ru']
 const ERROR_CODES = ['upstream', 'timeout', 'moderation', 'too_long']
-const COST = { text: { in: 0.03, out: 0.15 }, media: { in: 1.25, out: 10 }, image: 0.04 }
+const COST = { text: { in: 0.075, out: 0.3 }, media: { in: 0.2, out: 1.2 }, image: 0.04 }
 
 export function buildDataset(now = Date.now(), seed = 42): Dataset {
   const r = rng(seed)

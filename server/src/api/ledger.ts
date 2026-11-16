@@ -195,6 +195,12 @@ export interface Outcome {
   tokensOut: number
   costUsd: number
   errorCode?: string
+  /**
+   * Картинка создана инструментом генерации. Задан: генерация считается по факту
+   * (сообщение без картинки возвращает зарезервированную генерацию, ответ с картинкой
+   * учитывается как генерация). Не задан: как зарезервировано.
+   */
+  generated?: boolean
 }
 
 /** Закрывает резерв. Фактические расходы пишутся всегда — даже при возврате запроса. */
@@ -223,6 +229,10 @@ export function settle(db: Db, eventId: number, o: Outcome) {
         ev.kind === 'image' ? 1 : 0,
         ev.sub_id,
       )
+    } else if (o.generated !== undefined && o.generated !== (ev.kind === 'image')) {
+      // kind = 'image' в отчётах означает состоявшуюся генерацию
+      db.run('UPDATE usage_events SET kind = ? WHERE id = ?', o.generated ? 'image' : 'text', eventId)
+      db.run('UPDATE subscriptions SET gen_used = MAX(0, gen_used + ?) WHERE id = ?', o.generated ? 1 : -1, ev.sub_id)
     }
   })
 }
