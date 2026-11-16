@@ -36,7 +36,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
-  <div>
+  <div class="ym-hide-content ym-disable-keys">
     <AppHeader />
     <main class="res">
       <div v-if="!info && !failed" class="res__state">

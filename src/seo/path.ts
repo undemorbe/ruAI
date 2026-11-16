@@ -10,3 +10,6 @@ export function normalizePath(path: string): string {
 export function isStalePrerender(prerenderedPath: string | null, pathname: string): boolean {
   return prerenderedPath !== null && normalizePath(prerenderedPath) !== normalizePath(pathname)
 }
+
+/** Метки рекламы и аналитики, которые не меняют содержимое страницы (Clean-param Яндекса, адреса для Метрики). */
+export const TRACKING_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'yclid', 'gclid', 'fbclid', 'ysclid', '_openstat', 'from', 'v']

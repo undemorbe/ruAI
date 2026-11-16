@@ -149,7 +149,7 @@ async function forgot() {
 </script>
 
 <template>
-  <main class="au">
+  <main class="au ym-hide-content ym-disable-keys">
     <RouterLink to="/" class="au__brand" aria-label="ChatGPT: на главную">
       <span class="au__knot"><BrandMark /></span>
       ChatGPT

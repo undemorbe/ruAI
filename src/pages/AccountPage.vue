@@ -79,7 +79,7 @@ async function logout() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page ym-hide-content ym-disable-keys">
     <AppHeader />
     <main v-if="user.user && !user.isGuest" class="acc">
       <h1>Аккаунт</h1>

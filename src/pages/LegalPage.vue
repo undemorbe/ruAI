@@ -4,12 +4,16 @@ import { useRoute } from 'vue-router'
 import AppHeader from '@/components/ui/AppHeader.vue'
 import { LEGAL_DOCS, LEGAL_ORDER, isLegalSlug } from '@/content/legal/docs'
 import { OPERATOR, legalDate } from '@/content/legal/operator'
+import { consent, resetConsent } from '@/lib/analytics'
 
 const route = useRoute()
 /** Без параметра — страница реквизитов и список документов. */
 const doc = computed(() => (isLegalSlug(route.params.doc) ? LEGAL_DOCS[route.params.doc] : null))
 const unknown = computed(() => !!route.params.doc && !doc.value)
 // title и мета страницы ставит роутер из src/seo/pages.ts
+const consentLabel = computed(() =>
+  consent.value === 'granted' ? 'Яндекс Метрика включена.' : consent.value === 'denied' ? 'Яндекс Метрика отключена.' : 'Вы ещё не выбрали: Метрика отключена.',
+)
 
 </script>
 
@@ -52,6 +56,11 @@ const unknown = computed(() => !!route.params.doc && !doc.value)
             </div>
           </template>
         </section>
+        <section v-if="doc.slug === 'privacy'" class="lg__consent">
+          <h2>Ваш выбор по аналитике</h2>
+          <p>{{ consentLabel }}</p>
+          <button type="button" class="btn btn--ghost" @click="resetConsent">Изменить выбор</button>
+        </section>
       </article>
 
       <article v-else-if="unknown" class="lg__doc">
@@ -81,6 +90,12 @@ const unknown = computed(() => !!route.params.doc && !doc.value)
 </template>
 
 <style scoped>
+.lg__consent {
+  margin-top: 32px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
 .lg {
   display: grid;
   grid-template-columns: minmax(0, 240px) minmax(0, 720px);

@@ -1,4 +1,5 @@
 import { DISALLOW, PUBLIC_PAGES } from './pages'
+import { TRACKING_PARAMS } from './path'
 import { INDEXNOW_KEY, SHORT_NAME, SITE_HOST, SITE_NAME, SITE_URL, THEME_COLOR, absUrl } from './site'
 
 /**
@@ -7,8 +8,7 @@ import { INDEXNOW_KEY, SHORT_NAME, SITE_HOST, SITE_NAME, SITE_URL, THEME_COLOR, 
  * Перегенерировать: node scripts/seo-assets.mjs (или поправить файлы так, чтобы тест прошёл).
  */
 
-/** Метки рекламы и аналитики, которые не меняют содержимое страницы (директива Clean-param Яндекса). */
-export const TRACKING_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'yclid', 'gclid', 'fbclid', 'ysclid', '_openstat', 'from', 'v']
+export { TRACKING_PARAMS }
 
 export function robotsTxt(): string {
   const disallow = DISALLOW.map((p) => `Disallow: ${p}`)

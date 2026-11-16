@@ -3,6 +3,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import { router } from './router'
+import { initAnalytics } from './lib/analytics'
 import { isStalePrerender } from './seo/path'
 import './styles/base.css'
 
@@ -12,4 +13,8 @@ if (pre && isStalePrerender(pre.getAttribute('data-prerendered'), location.pathn
 
 const app = createApp(App).use(createPinia()).use(router)
 // монтируем, когда страница маршрута загружена: статический текст сменяется сразу готовой страницей
-void router.isReady().then(() => app.mount('#app'))
+// аналитика - после монтирования: ResetPage уже убрал токен из адреса; без согласия Метрика не грузится
+void router.isReady().then(() => {
+  app.mount('#app')
+  initAnalytics(router)
+})

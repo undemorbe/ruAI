@@ -91,7 +91,7 @@ async function pay() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page ym-hide-content ym-disable-keys">
     <AppHeader />
     <main class="wrap">
       <RouterLink :to="{ name: 'pricing', query: { tier } }" class="back"><Icon name="arrow" :size="16" class="back__i" /> Все тарифы</RouterLink>

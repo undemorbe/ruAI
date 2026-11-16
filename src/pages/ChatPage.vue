@@ -119,7 +119,7 @@ function select(id: string | null) {
 </script>
 
 <template>
-  <div class="chat">
+  <div class="chat ym-hide-content ym-disable-keys">
     <ChatSidebar
       :chats="chat.chats"
       :active-id="chat.activeId"

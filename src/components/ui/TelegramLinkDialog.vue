@@ -49,7 +49,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div class="tl" role="dialog" aria-modal="true" aria-labelledby="tl-title" @click.self="emit('close')">
+    <div class="tl ym-hide-content ym-disable-keys" role="dialog" aria-modal="true" aria-labelledby="tl-title" @click.self="emit('close')">
       <div class="tl__card">
         <button type="button" class="tl__x" aria-label="Закрыть" @click="emit('close')"><Icon name="x" /></button>
         <span class="tl__badge"><Icon name="shield" :size="22" /></span>
