@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { LIMITS } from '@/config/app'
 import { LEGAL_VERSION } from '@/content/legal/operator'
+import { estimateTokens } from '@/lib/limits'
 import { ApiError } from '../http'
 import type { ChatStreamEvent, LimitCode, PlanId, PlanTier, SendMessagePayload } from '../types'
 import { K, asksForImage, mockBilling, mockChat, newSubscription } from '../mocks'
@@ -208,6 +210,14 @@ describe('mock image generation', () => {
 })
 
 describe('asksForImage', () => {
+  it('фото входят в лимит входящих токенов, как на сервере', async () => {
+    subscribe('week', {}, 'media')
+    let long = 'слово '
+    while (estimateTokens(long) + 4 * LIMITS.photoTokens <= LIMITS.inputTokens) long += 'слово '
+    expect(estimateTokens(long)).toBeLessThanOrEqual(LIMITS.inputTokens)
+    expect(await refusal(long, { images: ['up_1', 'up_2', 'up_3', 'up_4'] })).toBe('too_long')
+  })
+
   it('узнаёт просьбы нарисовать и не трогает обычные вопросы', () => {
     for (const t of ['Нарисуй осла', 'изобрази закат', 'Сгенерируй картинку с котом', 'сделай мне логотип', 'Создай изображение моря']) expect(asksForImage(t)).toBe(true)
     for (const t of ['Сколько живут ослы?', 'Сделай план на неделю', 'Что на фото?', 'Создай таблицу']) expect(asksForImage(t)).toBe(false)

@@ -29,7 +29,22 @@ const setNum = (e: Event, fn: (n: number) => void) => fn(Number((e.target as HTM
           <span>Генерация и редактирование фото</span>
           <input v-model.trim="st.draft.value.models.image" class="field-sm" type="text" maxlength="193" autocomplete="off" spellcheck="false" aria-label="Модель генерации фото" />
         </label>
+        <label>
+          <span>Цена одной картинки, $</span>
+          <input
+            class="field-sm price"
+            type="number"
+            min="0"
+            max="1"
+            step="0.001"
+            inputmode="decimal"
+            aria-label="Цена одной картинки в долларах"
+            :value="st.draft.value.imageCostUsd"
+            @input="setNum($event, (n) => (st.draft.value!.imageCostUsd = n))"
+          />
+        </label>
       </div>
+      <p class="muted">OpenRouter не включает генерацию картинки в стоимость ответа: эта цена прибавляется к расходу запроса, бюджету подписки и суточному предохранителю. При смене модели картинок проверьте цену.</p>
     </Panel>
 
     <Panel title="Внутренний бюджет подписки" note="максимум расхода OpenRouter на одну подписку; при исчерпании запросы закрываются">
@@ -107,7 +122,8 @@ const setNum = (e: Event, fn: (n: number) => void) => fn(Number((e.target as HTM
   align-items: center;
   gap: 8px;
 }
-.rate input {
+.rate input,
+.models .price {
   width: 110px;
 }
 .act {

@@ -49,6 +49,8 @@ export const defaultAdminSettings = (): AdminSettings => ({
     media: { week: 315, month: 795, quarter: 1552 },
   },
   usdRub: 95,
+  // Seedream 5.5, 1024x1024: замер 17.11.2026
+  imageCostUsd: 0.02,
 })
 
 export interface DemoUser {
@@ -143,7 +145,7 @@ const NAMES = ['anna', 'dmitry', 'maria', 'igor', 'elena', 'artem', 'olga', 'pav
 const DOMAINS = ['mail.ru', 'yandex.ru', 'gmail.com', 'bk.ru', 'inbox.ru']
 /** Те же коды, что пишет сервер сайта (подписи - ERROR_LABEL в format.ts). */
 const ERROR_CODES = ['upstream', 'empty', 'no_image', 'interrupted']
-const COST = { text: { in: 0.075, out: 0.3 }, media: { in: 0.2, out: 1.2 }, image: 0.04 }
+const COST = { text: { in: 0.075, out: 0.3 }, media: { in: 0.1, out: 0.9 }, image: 0.02 }
 
 export function buildDataset(now = Date.now(), seed = 42): Dataset {
   const r = rng(seed)
@@ -407,7 +409,7 @@ export function apiReport(ds: Dataset, r: DateRange, s: AdminSettings): ApiRepor
     totalRub: Math.round(totalUsd * s.usdRub),
     byModel: [
       { key: 'text', label: 'Текстовый тариф', usd: round(textUsd), requests: list.filter((u) => u.tier === 'text').reduce((n, u) => n + u.requests, 0) },
-      { key: 'media', label: 'Тариф с фото (GPT-5.6 Luna)', usd: round(mediaUsd), requests: list.filter((u) => u.tier === 'media').reduce((n, u) => n + u.requests, 0) },
+      { key: 'media', label: 'Тариф с фото', usd: round(mediaUsd), requests: list.filter((u) => u.tier === 'media').reduce((n, u) => n + u.requests, 0) },
       { key: 'image', label: 'Генерация изображений', usd: round(imageUsd), requests: list.reduce((n, u) => n + u.generations, 0) },
     ],
     errors: {

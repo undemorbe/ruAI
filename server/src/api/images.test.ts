@@ -3,6 +3,10 @@ import { test } from 'node:test'
 import { grantSubscription } from './billing.ts'
 import { probe, sanitize, sniff, stripMetadata } from './images.ts'
 import { readSettings, writeSettings } from './ledger.ts'
+import { LIMITS } from '@/config/app'
+import { estimateTokens } from '@/lib/limits'
+import { PHOTO_TOKENS } from './app.ts'
+import { PRIOR_IMAGES } from './context.ts'
 import { ORIGIN, setup } from './testkit.ts'
 
 const seg = (marker: number, payload: Buffer) => {
@@ -222,7 +226,12 @@ test('генерация: картинка от инструмента пров�
   const sub = t.db.get<{ gen_used: number; total_used: number; spent_usd: number }>('SELECT gen_used, total_used, spent_usd FROM subscriptions WHERE tier = ?', 'media')!
   assert.equal(sub.gen_used, 1)
   assert.equal(sub.total_used, 1)
-  assert.equal(Math.round(sub.spent_usd * 1000), 42, 'фактический расход учтён даже без результата')
+  // usage.cost - только модель чата; каждая сгенерированная картинка по цене из настроек ($0.02),
+  // в том числе не прошедшая проверку: 0.04 + 2 × 0.02 и 0.002 + 0.02
+  assert.equal(readSettings(t.db).imageCostUsd, 0.02)
+  assert.equal(Math.round(sub.spent_usd * 1000), 102, 'фактический расход учтён даже без результата')
+  const ev3 = t.db.all<{ cost_usd: number }>('SELECT cost_usd FROM usage_events ORDER BY id')
+  assert.deepEqual(ev3.map((e) => Math.round(e.cost_usd * 1000)), [80, 22])
 })
 
 test('«Нарисуй осла» обычным сообщением: модель чата сама вызывает генерацию, генерация списывается по факту', async () => {
@@ -307,4 +316,40 @@ test('текстовый тариф: GPT-OSS через chat/completions, без
   assert.equal(call.model, 'm/text')
   assert.equal(call.messages[0]!.role, 'system')
   assert.match(String(call.messages[0]!.content), /тарифе с фото и изображениями/)
+})
+
+test('лимит 16 000 входящих токенов учитывает фото: длинный текст с фото отклоняется, история урезается с запасом под картинки', async () => {
+  const t = setup()
+  const userId = await t.register()
+  grantSubscription(t.db, { userId, tier: 'media', planId: 'month', now: t.clock.t })
+  const refs: string[] = []
+  for (let i = 0; i < 4; i++) refs.push(((await upload(t, jpeg())).json() as { id: string }).id)
+
+  // текст сам по себе в лимите, но вместе с 4 фото - нет: отказ до модели и без списания
+  let long = 'слово '
+  while (estimateTokens(long) + 4 * PHOTO_TOKENS <= LIMITS.inputTokens) long += 'слово '
+  assert.ok(estimateTokens(long) <= LIMITS.inputTokens)
+  const r = await t.req('POST', '/api/chats/messages', { chatId: null, content: long, images: refs })
+  assert.equal(r.statusCode, 413)
+  assert.equal(r.json().code, 'too_long')
+  assert.equal(t.llm.calls.length, 0)
+  assert.equal(t.db.get<{ total_used: number }>('SELECT total_used FROM subscriptions')!.total_used, 0)
+
+  // длинная история: в модель уходит только то, что помещается вместе с картинками
+  const chunk = 'история '.repeat(1300)
+  let chatId: string | null = null
+  for (let i = 0; i < 5; i++) {
+    const ev = t.events((await t.req('POST', '/api/chats/messages', { chatId, content: `${i} ${chunk}` })).body)
+    chatId ??= (ev[0] as { chat: { id: string } }).chat.id
+    t.clock.t += 61_000
+  }
+  await t.req('POST', '/api/chats/messages', { chatId, content: 'что на фото?', images: refs })
+  const msgs = t.llm.calls.at(-1)!.messages
+  const textTokens = msgs.reduce((n, m) => n + estimateTokens(typeof m.content === 'string' ? m.content : m.content.map((p) => (p.type === 'text' ? p.text : '')).join('')), 0)
+  const images = JSON.stringify(msgs).match(/data:image\//g)!.length
+  assert.equal(images, 4)
+  assert.ok(textTokens + (4 + PRIOR_IMAGES) * PHOTO_TOKENS <= LIMITS.inputTokens, `${textTokens} токенов текста`)
+  assert.ok(msgs.length < 11, 'самые старые сообщения убраны')
+  // полная история при этом в базе
+  assert.equal(t.db.get<{ n: number }>('SELECT COUNT(*) AS n FROM messages WHERE chat_id = ?', chatId)!.n, 12)
 })

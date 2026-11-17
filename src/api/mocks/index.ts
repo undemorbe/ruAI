@@ -46,17 +46,13 @@ export const K = {
 }
 
 /**
- * Ориентировочные цены OpenRouter, $ за 1 млн токенов и $ за картинку.
- * На сервере берётся фактическая стоимость (`usage.cost`) из ответа OpenRouter.
+ * Ориентировочные цены OpenRouter, $ за 1 млн токенов. Цена картинки - `imageCostUsd` в настройках.
+ * На сервере берётся фактическая стоимость (`usage.cost`) из ответа OpenRouter плюс цена картинок.
  */
 export const COST = {
-  // GPT-OSS-20B и GPT-5.6 Luna по каталогу OpenRouter 16.11.2026
+  // GPT-OSS-20B и Qwen3.6 35B A3B по каталогу OpenRouter 17.11.2026
   text: { input: 0.075, output: 0.3 },
-  media: { input: 0.2, output: 1.2 },
-  /** GPT Image 2.6 Flare, quality medium, 1024x1024: ~1100 токенов по $30/млн + описание от Luna. */
-  imageGeneration: 0.04,
-  /** Входные токены на одно фото при анализе. */
-  photoTokens: 1100,
+  media: { input: 0.1, output: 0.9 },
 }
 
 export const defaultSettings = (): AdminSettings => ({
@@ -70,6 +66,7 @@ export const defaultSettings = (): AdminSettings => ({
     media: { week: 315, month: 795, quarter: 1552 },
   },
   usdRub: 95,
+  imageCostUsd: 0.02,
 })
 export const loadSettings = () => ({ ...defaultSettings(), ...storage.get<Partial<AdminSettings>>(K.settings, {}) })
 
@@ -415,7 +412,7 @@ export const mockChat: ChatService = {
     const rate = storage.get<number[]>(K.rate, []).filter((t) => now.getTime() - t < 3_600_000)
     const wait = rateWait(rate, now.getTime())
     if (wait > 0) throw refuse('rate_limit', wait)
-    if (estimateTokens(payload.content) > LIMITS.inputTokens) throw refuse('too_long')
+    if (estimateTokens(payload.content) + (payload.images?.length ?? 0) * LIMITS.photoTokens > LIMITS.inputTokens) throw refuse('too_long')
     // расширенный тариф: модель чата сама решает рисовать (инструмент генерации), если генерация открыта
     const genOpen = sub.tier === 'media' && settings.generationEnabled && (genLimit === null || sub.usage.generationsUsed < genLimit)
     const drawing = wantsImage || (genOpen && asksForImage(payload.content))
@@ -503,13 +500,13 @@ export const mockChat: ChatService = {
 
         // фактическая стоимость: модель и генерация считаются раздельно
         const price = COST[sub.tier]
-        const inTok = context.reduce((n, m) => n + estimateTokens(m.content), 0) + attached.length * COST.photoTokens
+        const inTok = context.reduce((n, m) => n + estimateTokens(m.content), 0) + attached.length * LIMITS.photoTokens
         const outTok = estimateTokens(text)
         ledger.tokensIn += inTok
         ledger.tokensOut += outTok
         ledger.spentTextUsd += (inTok * price.input + outTok * price.output) / 1e6
         if (images.length) {
-          ledger.spentImageUsd += COST.imageGeneration * images.length
+          ledger.spentImageUsd += settings.imageCostUsd * images.length
           ledger.generations += images.length
         }
         if (!produced) ledger.errors++

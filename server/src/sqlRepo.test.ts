@@ -174,6 +174,17 @@ test('настройки админки пишутся в общую БД - их
   assert.equal(r.statusCode, 200)
   assert.equal(readSettings(db).generationEnabled, false)
   assert.equal(readSettings(db).usdRub, 101)
+
+  // цена картинки: старые настройки без поля получают значение по умолчанию; проверка диапазона
+  assert.equal(s.imageCostUsd, 0.02)
+  assert.equal((await call('PUT', 'settings', { ...s, imageCostUsd: 0.035 })).statusCode, 200)
+  assert.equal(readSettings(db).imageCostUsd, 0.035)
+  assert.equal((await call('PUT', 'settings', { ...s, imageCostUsd: -1 })).statusCode, 400)
+  assert.equal((await call('PUT', 'settings', { ...s, imageCostUsd: 2 })).statusCode, 400)
+  const noPrice = { ...s }
+  delete noPrice.imageCostUsd
+  assert.equal((await call('PUT', 'settings', noPrice)).statusCode, 400)
+  assert.equal(readSettings(db).imageCostUsd, 0.035)
 })
 
 test('действия с пользователями - только после входа', async () => {

@@ -40,6 +40,8 @@ export const LIMITS = {
   outputTokens: 16_000,
   /** Сколько последних сообщений чата уходит в модель. */
   contextMessages: 20,
+  /** Оценка входных токенов на одно фото: входит в лимит inputTokens. */
+  photoTokens: 1200,
   perMinute: 5,
   perHour: 50,
   /** Одновременных запросов на пользователя. */

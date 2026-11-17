@@ -28,6 +28,7 @@ export function useSettings() {
     if (ints.some((n) => !Number.isFinite(n) || n < 0)) return 'Бюджет — неотрицательное число'
     if (Object.values(s.generationLimits).some((n) => n !== null && (!Number.isInteger(n) || n < 0))) return 'Лимит генераций — целое число ≥ 0 или пусто'
     if (!(s.usdRub > 0 && s.usdRub < 1000)) return 'Курс доллара указан неверно'
+    if (!(Number.isFinite(s.imageCostUsd) && s.imageCostUsd >= 0 && s.imageCostUsd <= 1)) return 'Цена картинки: от 0 до 1 $'
     return null
   }
 

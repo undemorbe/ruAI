@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { LlmError, dataImage, openRouter, toResponsesInput, type AgentRequest } from './openrouter.ts'
+import { LlmError, dataImage, imageToolParams, openRouter, toResponsesInput, type AgentRequest } from './openrouter.ts'
 
 function sse(lines: string[], status = 200) {
   const body = new ReadableStream({
@@ -75,6 +75,7 @@ test('respond: Responses API с инструментом openrouter:image_genera
       'event: response.created',
       'data: {"type":"response.created","response":{"status":"in_progress"}}',
       'data: {"type":"response.reasoning_text.delta","delta":"думаю"}',
+      'data: {"type":"response.reasoning_summary_text.delta","delta":"итог размышлений"}',
       `data: ${JSON.stringify({ type: 'response.output_item.done', item })}`,
       'data: {"type":"response.output_text.delta","delta":"Вот "}',
       'data: {"type":"response.content_part.delta","delta":"осёл"}',
@@ -101,7 +102,7 @@ test('respond: Responses API с инструментом openrouter:image_genera
   assert.equal(body.tool_choice, 'auto')
   assert.equal(body.max_tool_calls, 1)
   assert.equal(body.max_output_tokens, 100)
-  assert.equal(body.reasoning, undefined)
+  assert.deepEqual(body.reasoning, { effort: 'low' }, 'рассуждения включены, но в текст не попадают')
   assert.deepEqual(body.input, [
     {
       role: 'user',
@@ -147,4 +148,10 @@ test('dataImage: только растровые data:URL', () => {
 
 test('toResponsesInput: строки как есть, картинки как input_image', () => {
   assert.deepEqual(toResponsesInput([{ role: 'assistant', content: 'привет' }]), [{ role: 'assistant', content: 'привет' }])
+})
+
+test('imageToolParams: Seedream в 1024x1024 (дешевле 2048), GPT Image quality medium, прочим только модель', () => {
+  assert.deepEqual(imageToolParams('bytedance-seed/seedream-5-5'), { model: 'bytedance-seed/seedream-5-5', size: '1024x1024' })
+  assert.deepEqual(imageToolParams('openai/gpt-image-2.6-flare'), { model: 'openai/gpt-image-2.6-flare', quality: 'medium' })
+  assert.deepEqual(imageToolParams('google/gemini-3.1-flash-image'), { model: 'google/gemini-3.1-flash-image' })
 })

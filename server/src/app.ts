@@ -29,7 +29,7 @@ const plans = (item: object) => ({
 const SETTINGS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['generationEnabled', 'models', 'generationLimits', 'budgetsRub', 'usdRub'],
+  required: ['generationEnabled', 'models', 'generationLimits', 'budgetsRub', 'usdRub', 'imageCostUsd'],
   properties: {
     generationEnabled: { type: 'boolean' },
     models: {
@@ -41,6 +41,7 @@ const SETTINGS_SCHEMA = {
     generationLimits: plans(LIMIT),
     budgetsRub: { type: 'object', additionalProperties: false, required: ['text', 'media'], properties: { text: plans(BUDGET), media: plans(BUDGET) } },
     usdRub: { type: 'number', exclusiveMinimum: 0, maximum: 1000 },
+    imageCostUsd: { type: 'number', minimum: 0, maximum: 1 },
   },
 }
 const LOGIN_SCHEMA = {
@@ -472,6 +473,7 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
         if (JSON.stringify(before.budgetsRub) !== JSON.stringify(req.body.budgetsRub)) changes.push('бюджеты')
         if (JSON.stringify(before.models) !== JSON.stringify(req.body.models)) changes.push('модели OpenRouter')
         if (before.usdRub !== req.body.usdRub) changes.push(`курс ${req.body.usdRub}`)
+        if (before.imageCostUsd !== req.body.imageCostUsd) changes.push(`цена картинки ${req.body.imageCostUsd}`)
         audit(req, 'settings', changes.join(', ') || 'без изменений')
         return settings.settings()
       })

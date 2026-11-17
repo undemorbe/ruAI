@@ -4,10 +4,13 @@ import { COST } from '@/api/mocks'
 import type { PlanId } from '@/api/types'
 import { PLAN_TABLE, PRICES } from '@/content/plans'
 
-/** Средний запрос: ~1500 токенов на входе (с историей), ~500 на выходе. */
-const avgRequestUsd = (tier: 'text' | 'media') => (1500 * COST[tier].input + 500 * COST[tier].output) / 1e6
-/** Картинка: генерация плюс работа модели чата над описанием. */
-const imageUsd = COST.imageGeneration + avgRequestUsd('media')
+/**
+ * Средний запрос: ~1500 токенов на входе (с историей), ~500 на выходе; в тарифе с фото
+ * ещё ~500 токенов рассуждений (effort low).
+ */
+const avgRequestUsd = (tier: 'text' | 'media') => (1500 * COST[tier].input + (tier === 'media' ? 1000 : 500) * COST[tier].output) / 1e6
+/** Картинка: генерация (цена из настроек) плюс работа модели чата над описанием. */
+const imageUsd = defaultAdminSettings().imageCostUsd + avgRequestUsd('media')
 
 describe('экономика тарифов по умолчанию', () => {
   const s = defaultAdminSettings()
@@ -29,6 +32,9 @@ describe('экономика тарифов по умолчанию', () => {
       expect(gens!).toBeLessThanOrEqual(PLAN_TABLE[id].requestsTotal)
       const usd = gens! * imageUsd + (PLAN_TABLE[id].requestsTotal - gens!) * avgRequestUsd('media')
       expect(usd * s.usdRub, id).toBeLessThan(s.budgetsRub.media[id])
+      // запас: даже вдвое дороже картинки всё ещё в бюджете
+      const worst = gens! * (2 * s.imageCostUsd + avgRequestUsd('media')) + (PLAN_TABLE[id].requestsTotal - gens!) * avgRequestUsd('media')
+      expect(worst * s.usdRub, id).toBeLessThan(s.budgetsRub.media[id])
     }
   })
 })

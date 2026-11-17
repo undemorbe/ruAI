@@ -8,6 +8,8 @@ test('systemPrompt: текстовый тариф без картинок, ра�
     assert.match(systemPrompt(a), /Markdown/)
     assert.match(systemPrompt(a), /HTML/)
     assert.match(systemPrompt(a), /Не раскрывай внутренние рассуждения/i)
+    assert.match(systemPrompt(a), /Привет! Чем могу помочь сегодня\?/)
+    assert.match(systemPrompt(a), /Пиши кратко и ясно/)
   }
   assert.match(systemPrompt('none'), /тарифе с фото и изображениями/)
   assert.doesNotMatch(systemPrompt('none'), /инструмент/)

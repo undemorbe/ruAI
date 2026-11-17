@@ -104,6 +104,18 @@ async function* sseJson(body: ReadableStream<Uint8Array>): AsyncGenerator<Record
   }
 }
 
+/**
+ * Параметры инструмента картинок по модели: дешевле и достаточно для чата.
+ * Seedream не знает quality, качество задаёт размер: 1024x1024 стоит $0.020 против $0.035 за
+ * 2048x2048 по умолчанию (замер 17.11.2026). GPT Image: quality medium (auto может выбрать high).
+ * Остальным моделям лишнего не передаём: незнакомый параметр может сорвать генерацию.
+ */
+export function imageToolParams(model: string): Record<string, string> {
+  if (/^bytedance-seed\/seedream/i.test(model)) return { model, size: '1024x1024' }
+  if (/^openai\/gpt-image/i.test(model)) return { model, quality: 'medium' }
+  return { model }
+}
+
 export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm {
   const headers = {
     Authorization: `Bearer ${key}`,
@@ -145,11 +157,13 @@ export function openRouter(key: string, referer: string, f: Fetch = fetch): Llm 
         input: toResponsesInput(messages),
         stream: true,
         max_output_tokens: maxTokens,
+        // рассуждения улучшают ответы; приходят отдельными событиями reasoning_*, в чат не идут.
+        // Модель должна отделять их от текста: qwen3.5-flash у Alibaba пишет их прямо в ответ (проверено 17.11.2026)
+        reasoning: { effort: 'low' },
         user,
       }
       if (imageTool) {
-        // quality medium: auto может выбрать high, это в разы дороже при той же пользе в чате
-        body.tools = [{ type: IMAGE_TOOL, parameters: { model: imageTool.model, quality: 'medium' } }]
+        body.tools = [{ type: IMAGE_TOOL, parameters: imageToolParams(imageTool.model) }]
         body.tool_choice = forceImage ? 'required' : 'auto'
         // одна генерация на сообщение: так совпадает со счётчиком генераций и бюджетом
         body.max_tool_calls = 1

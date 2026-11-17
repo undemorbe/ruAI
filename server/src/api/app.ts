@@ -22,7 +22,7 @@ import { ImageFiles, sanitize } from './images.ts'
 import { initializeSettings, Refusal, readSettings, releaseStale, reserve, settle, usageOf, activeSub, type Kind } from './ledger.ts'
 import type { Llm, LlmUsage, Part } from './openrouter.ts'
 import { stripImageUrls, systemPrompt, type ImageAccess } from './prompts.ts'
-import { assembleMessages, pickContextImages } from './context.ts'
+import { PRIOR_IMAGES, assembleMessages, pickContextImages } from './context.ts'
 import { sanitizeVisibleText, VisibleTextStream } from './visibleText.ts'
 import type { TgApi } from './tg/api.ts'
 import { TgBot } from './tg/bot.ts'
@@ -50,8 +50,7 @@ const FALLBACK_PRICE: Record<PlanTier, { in: number; out: number }> = {
   text: { in: 0.1 / 1e6, out: 0.5 / 1e6 },
   media: { in: 2 / 1e6, out: 12 / 1e6 },
 }
-const FALLBACK_IMAGE_USD = 0.08
-const PHOTO_TOKENS = 1200
+export const PHOTO_TOKENS = LIMITS.photoTokens
 
 const ID = { type: 'string', pattern: '^[a-z]{1,4}_[A-Za-z0-9_-]{20}$' }
 const SEND_SCHEMA = {
@@ -478,7 +477,8 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
         const photoIds = p.images ?? []
         const kind: Kind = p.mode === 'image' ? 'image' : photoIds.length ? 'vision' : 'text'
         if (!content && kind !== 'vision') return reply.code(400).send({ message: 'Пустое сообщение' })
-        if (estimateTokens(content) > LIMITS.inputTokens) throw new Refusal('too_long')
+        // фото тоже занимают входные токены: сообщение с ними целиком должно уместиться в лимит
+        if (estimateTokens(content) + photoIds.length * PHOTO_TOKENS > LIMITS.inputTokens) throw new Refusal('too_long')
         if (p.chatId && !chatOf(u.id, p.chatId)) return reply.code(404).send({ message: 'Чат не найден' })
         const photos = photoIds.map((id) => db.get<ImageRow>("SELECT * FROM images WHERE id = ? AND user_id = ? AND source = 'upload' AND message_id IS NULL", id, u.id))
         if (photos.some((x) => !x)) throw new Refusal('bad_image')
@@ -543,6 +543,8 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
           let text = ''
           const produced: ImageRef[] = []
           let usage: LlmUsage | null = null
+          /** Сколько картинок сгенерировал инструмент (оплачены, даже если файл не прошёл проверку). */
+          let generatedImages = 0
           let finish: string | null = null
           let errorCode: string | undefined
           const userTag = sha256(`ruai:${u.id}`).slice(0, 24)
@@ -560,7 +562,13 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
               .reverse()
               // сообщение только с фото (без текста) остаётся в контексте тарифа с изображениями
               .filter((m) => m.content || (media && m.pics > 0))
-            const ctx = buildContext(history.map((m) => ({ ...m, content: sanitizeVisibleText(m.content) })))
+            // место под картинки (новые фото и до PRIOR_IMAGES из истории) вычитается из лимита входа заранее
+            const imageReserve = media ? (photos.length + PRIOR_IMAGES) * PHOTO_TOKENS : 0
+            const ctx = buildContext(
+              history.map((m) => ({ ...m, content: sanitizeVisibleText(m.content) })),
+              LIMITS.contextMessages,
+              LIMITS.inputTokens - imageReserve,
+            )
             // текстовая модель картинок не видит: части-картинки только в тарифе с изображениями
             const ctxImages = media
               ? db.all<{ id: string; message_id: string; created_at: number }>(
@@ -629,6 +637,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
                   send({ type: 'delta', messageId: replyId, text: word })
                 }
               } else if (ch.type === 'image') {
+                generatedImages++
                 // одна генерация на сообщение (столько же списывает счётчик)
                 if (!produced.length) saveImage(ch.data)
               } else {
@@ -651,10 +660,9 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
 
           const ok = text.length > 0 || produced.length > 0
           const promptTokens = estimateTokens(content) + photos.length * PHOTO_TOKENS
-          const cost =
-            usage?.costUsd ||
-            produced.length * FALLBACK_IMAGE_USD +
-              (promptTokens * FALLBACK_PRICE[tier].in + estimateTokens(text) * FALLBACK_PRICE[tier].out) * (ok || errorCode === 'aborted' ? 1 : 0)
+          // usage.cost OpenRouter - только токены модели чата; генерацию инструментом прибавляем по цене из настроек
+          const llmCost = usage?.costUsd || (promptTokens * FALLBACK_PRICE[tier].in + estimateTokens(text) * FALLBACK_PRICE[tier].out) * (ok || errorCode === 'aborted' ? 1 : 0)
+          const cost = llmCost + generatedImages * settings.imageCostUsd
           const truncated = finish === 'length'
           let message: Message | null = null
           if (ok) {

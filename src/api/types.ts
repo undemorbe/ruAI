@@ -222,4 +222,9 @@ export interface AdminSettings {
   budgetsRub: Record<PlanTier, Record<PlanId, number>>
   /** Курс для пересчёта расходов OpenRouter ($) в рубли. */
   usdRub: number
+  /**
+   * Цена одной созданной картинки, $. OpenRouter не включает генерацию инструментом
+   * в usage.cost ответа, поэтому сервер прибавляет её к расходу запроса сам.
+   */
+  imageCostUsd: number
 }
