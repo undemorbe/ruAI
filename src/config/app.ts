@@ -12,7 +12,7 @@ export interface ModelOption {
  * Администратор может изменить ID текстовой модели, модели тарифа «Фото» и генератора в настройках.
  * `name` - то, что видит пользователь (чат, тарифы, оформление); главная страница пишет просто «ChatGPT».
  */
-export const MODEL_NAME = 'ChatGPT-6.1 Astra'
+export const MODEL_NAME = 'ChatGPT-6.2 Astra'
 
 // id сверены с каталогом OpenRouter (GET /api/v1/models) 16.11.2026.
 export const MODELS = {

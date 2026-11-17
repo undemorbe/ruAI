@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import Logo from './Logo.vue'
+
+/** Куда ведёт логотип: на главную (по умолчанию) или в чат, в новый чат. */
+const props = withDefaults(defineProps<{ logo?: 'home' | 'chat' }>(), { logo: 'home' })
+const logoLink = computed(() =>
+  props.logo === 'chat' ? { to: { name: 'chat' }, label: 'ChatGPT: новый чат' } : { to: '/', label: 'ChatGPT: на главную' },
+)
 
 const user = useUserStore()
 const route = useRoute()
@@ -15,7 +22,7 @@ async function logout() {
 
 <template>
   <header class="hdr">
-    <RouterLink to="/" class="hdr__logo" aria-label="ChatGPT — на главную"><Logo :size="26" /></RouterLink>
+    <RouterLink :to="logoLink.to" class="hdr__logo" :aria-label="logoLink.label"><Logo :size="26" /></RouterLink>
     <nav class="hdr__nav">
       <RouterLink to="/chat" class="hdr__link">Чат</RouterLink>
       <RouterLink to="/pricing" class="hdr__link">Тарифы</RouterLink>

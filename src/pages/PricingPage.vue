@@ -9,9 +9,11 @@ import Crumbs from '@/components/ui/Crumbs.vue'
 import Icon from '@/components/ui/Icon.vue'
 import { formatPrice } from '@/lib/format'
 import { PRICING_INTRO } from '@/content/landing-seo'
+import { OPERATOR, tgLink } from '@/content/legal/operator'
 import { useBillingStore } from '@/stores/billing'
 
 const billing = useBillingStore()
+const supportHref = tgLink(OPERATOR.supportBot)
 const route = useRoute()
 /** На телефоне вместо трёх одинаковых карточек подряд — переключатель периода. */
 const picked = ref<PlanId>('month')
@@ -31,7 +33,7 @@ const TRUST = [
 
 <template>
   <div class="page">
-    <AppHeader />
+    <AppHeader logo="chat" />
     <main class="wrap">
       <Crumbs />
       <div class="intro">
@@ -68,6 +70,10 @@ const TRUST = [
         </li>
       </ul>
       <p class="pay-more"><RouterLink to="/payment">Как оплатить ChatGPT российской картой</RouterLink> · <RouterLink to="/faq">Вопросы и ответы</RouterLink></p>
+      <p class="pay-help">
+        Остались вопросы по подписке или оплате?
+        <a :href="supportHref" target="_blank" rel="noopener noreferrer">Написать в поддержку</a>
+      </p>
     </main>
   </div>
 </template>
@@ -130,6 +136,17 @@ h1 {
   margin: 28px 0 0;
   text-align: center;
   color: var(--text-2);
+}
+.pay-help {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.pay-help a {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 .trust li {
   display: flex;

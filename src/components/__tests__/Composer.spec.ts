@@ -56,7 +56,7 @@ describe('chat composer placeholder', () => {
 
     await vi.runAllTimersAsync()
     await nextTick()
-    expect(wrapper.get('textarea').attributes('placeholder')).toBe('Спросите ChatGPT-6.1 Astra')
+    expect(wrapper.get('textarea').attributes('placeholder')).toBe('Спросите ChatGPT-6.2 Astra')
     wrapper.unmount()
   })
 

@@ -5,7 +5,7 @@ import { landingSeo } from '../landing-seo'
 import { getPlans } from '../plans'
 import wordsLanding from '../../landings/words/WordsLanding.vue?raw'
 
-describe('model name: ChatGPT-6.1 Astra in the app, plain ChatGPT on the main page', () => {
+describe('model name: ChatGPT-6.2 Astra in the app, plain ChatGPT on the main page', () => {
   const mainTexts = [
     wordsLanding,
     JSON.stringify(landingSeo),

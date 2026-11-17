@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { ChatSummary } from '@/api'
+import AccountMenu from '@/components/chat/AccountMenu.vue'
 import Icon from '@/components/ui/Icon.vue'
 import Logo from '@/components/ui/Logo.vue'
-import { useUserStore } from '@/stores/user'
 
 const props = defineProps<{ chats: ChatSummary[]; activeId: string | null; open: boolean; userLabel: string; isPaid: boolean }>()
 const emit = defineEmits<{ select: [id: string | null]; remove: [id: string]; close: [] }>()
-const user = useUserStore()
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape' && props.open) emit('close')
@@ -30,7 +29,7 @@ const groups = computed(() => {
   <div class="scrim" :class="{ 'is-open': open }" @click="emit('close')" />
   <aside class="side" :class="{ 'is-open': open }" aria-label="История чатов">
     <div class="side__top">
-      <RouterLink to="/" class="side__brand"><Logo :size="24" /></RouterLink>
+      <button type="button" class="side__brand" aria-label="ChatGPT: новый чат" @click="emit('select', null)"><Logo :size="24" /></button>
       <button class="side__close" aria-label="Закрыть меню" @click="emit('close')"><Icon name="x" /></button>
     </div>
 
@@ -52,15 +51,7 @@ const groups = computed(() => {
       <span><b>Оформить подписку</b><small>От 388 ₽ за 7 дней. С фото и картинками от 788 ₽</small></span>
     </RouterLink>
 
-    <div class="side__user">
-      <span class="side__avatar">{{ userLabel.slice(0, 2).toUpperCase() }}</span>
-      <span class="side__who">
-        <RouterLink v-if="!user.isGuest" :to="{ name: 'account' }" class="side__email">{{ userLabel }}</RouterLink>
-        <span v-else class="side__email">{{ userLabel }}</span>
-        <RouterLink v-if="user.isGuest" :to="{ name: 'login', query: { next: '/chat' } }" class="side__upgrade">Войти или зарегистрироваться</RouterLink>
-        <RouterLink v-else to="/pricing" class="side__upgrade">{{ isPaid ? 'Подписка' : 'Тарифы' }}</RouterLink>
-      </span>
-    </div>
+    <AccountMenu :user-label="userLabel" :is-paid="isPaid" @navigate="emit('close')" />
   </aside>
 </template>
 
@@ -81,6 +72,18 @@ const groups = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 4px 8px 10px;
+}
+.side__brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -4px -8px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  transition: background-color 0.15s;
+}
+.side__brand:hover {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
 }
 .side__close {
   display: none;
@@ -186,44 +189,6 @@ const groups = computed(() => {
 .side__upsell :deep(svg) {
   color: var(--accent);
   margin-top: 1px;
-}
-.side__user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-}
-.side__avatar {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-}
-.side__who {
-  display: grid;
-  min-width: 0;
-  line-height: 1.3;
-}
-.side__email {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.side__upgrade {
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  font-size: 13px;
-  color: var(--text-2);
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 .scrim {
   display: none;

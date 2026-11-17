@@ -93,8 +93,11 @@ async function logout() {
           <dt>Email для чеков</dt>
           <dd>{{ user.user.email ?? 'появится после первой оплаты' }}</dd>
           <dt>Подписка</dt>
-          <dd v-if="sub">{{ TIER_LABEL[sub.tier] }}, до {{ until }}</dd>
-          <dd v-else><RouterLink to="/pricing">Нет активной. Выбрать тариф</RouterLink></dd>
+          <dd class="kv__sub">
+            <span v-if="sub">{{ TIER_LABEL[sub.tier] }}, до {{ until }}</span>
+            <RouterLink v-else to="/pricing">Нет активной. Выбрать тариф</RouterLink>
+            <a :href="tgLink(OPERATOR.supportBot)" class="kv__help" target="_blank" rel="noopener noreferrer">Написать в поддержку</a>
+          </dd>
         </dl>
       </section>
 
@@ -175,6 +178,15 @@ h2 {
 .kv a {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+.kv__sub {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.kv .kv__help {
+  font-size: 14px;
+  color: var(--text-2);
 }
 @media (max-width: 480px) {
   .kv {
