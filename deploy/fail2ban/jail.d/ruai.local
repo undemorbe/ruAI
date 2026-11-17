@@ -1,0 +1,69 @@
+# /etc/fail2ban/jail.d/ruai.local
+[DEFAULT]
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+ignoreip = 127.0.0.1/8 ::1
+# свой статический IP можно добавить сюда, чтобы не заблокировать себя:
+# ignoreip = 127.0.0.1/8 ::1 203.0.113.10
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+# Перебор пароля/кода админки: 4 ошибки за 30 минут — бан на сутки на всех портах.
+[ruai-admin]
+enabled   = true
+filter    = ruai-admin
+logpath   = /var/log/ruai-admin/auth.log
+backend   = auto
+banaction = %(banaction_allports)s
+maxretry  = 4
+findtime  = 30m
+bantime   = 24h
+
+# Перебор кодов входа на сайте. Мягче, чем админка: люди ошибаются, за мобильным NAT много абонентов.
+[ruai-api]
+enabled  = true
+filter   = ruai-api
+logpath  = /var/log/ruai-api/auth.log
+backend  = auto
+port     = http,https
+maxretry = 15
+findtime = 10m
+bantime  = 1h
+
+# Сканеры стандартных адресов (/wp-admin, /phpmyadmin, /admin …) — лог ловушек nginx.
+[ruai-probe]
+enabled  = true
+filter   = ruai-probe
+port     = http,https
+logpath  = /var/log/nginx/ruai-probe.log
+maxretry = 3
+findtime = 1h
+bantime  = 12h
+
+# Систематические превышения limit_req (перебор API, флуд входа).
+[nginx-limit-req]
+enabled  = true
+port     = http,https
+logpath  = /var/log/nginx/error.log
+maxretry = 10
+findtime = 10m
+bantime  = 6h
+
+# Если включён auth_basic перед админкой.
+[nginx-http-auth]
+enabled = true
+port    = http,https
+logpath = /var/log/nginx/error.log
+
+[sshd]
+enabled  = true
+maxretry = 4
+bantime  = 6h
+
+# Повторные нарушители любого jail — бан на неделю.
+[recidive]
+enabled  = true
+bantime  = 1w
+findtime = 1d
+maxretry = 3

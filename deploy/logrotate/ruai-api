@@ -1,0 +1,10 @@
+/var/log/ruai-api/auth.log {
+    weekly
+    rotate 12
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 0640 ruai-api ruai-data
+}

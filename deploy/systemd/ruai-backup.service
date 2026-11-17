@@ -1,0 +1,19 @@
+# /etc/systemd/system/ruai-backup.service — снимок базы сайта (запускает ruai-backup.timer)
+[Unit]
+Description=ruAI database backup
+ConditionPathExists=/var/lib/ruai/ruai.db
+
+[Service]
+Type=oneshot
+User=ruai-api
+Group=ruai-data
+WorkingDirectory=/opt/ruai/server
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning scripts/backup.ts /var/lib/ruai/ruai.db /var/backups/ruai 14
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/ruai /var/backups/ruai
+IPAddressDeny=any

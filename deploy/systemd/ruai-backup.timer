@@ -1,0 +1,11 @@
+# /etc/systemd/system/ruai-backup.timer — каждый день в 04:10 (время сервера), 14 копий в /var/backups/ruai
+[Unit]
+Description=Daily ruAI database backup
+
+[Timer]
+OnCalendar=*-*-* 04:10:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

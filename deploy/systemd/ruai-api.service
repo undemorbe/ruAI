@@ -1,0 +1,56 @@
+# /etc/systemd/system/ruai-api.service — публичный API сайта (вход, чаты, учёт), 127.0.0.1:8080
+[Unit]
+Description=ruAI site API (127.0.0.1:8080)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ruai-api
+Group=ruai-data
+WorkingDirectory=/opt/ruai/server
+# секреты (ключ OpenRouter, SMTP, pepper): chmod 600, root:root — systemd читает файл до сброса прав
+EnvironmentFile=/etc/ruai-api.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node --disable-warning=ExperimentalWarning --max-old-space-size=320 --import ./src/register.ts src/api/main.ts
+Restart=on-failure
+RestartSec=3
+
+# /var/lib/ruai — база и фото (общая с админкой через группу ruai-data), /var/log/ruai-api — auth.log для fail2ban
+StateDirectory=ruai ruai/images
+StateDirectoryMode=0770
+LogsDirectory=ruai-api
+LogsDirectoryMode=0750
+# файлы базы доступны группе ruai-data (админке), остальным — нет
+UMask=0007
+
+# --- изоляция ---
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
+# сеть наружу нужна: OpenRouter (HTTPS) и SMTP
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
