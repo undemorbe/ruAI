@@ -267,6 +267,7 @@ export interface AuditEntry {
     | 'logout_user'
     | 'admin_added'
     | 'invite_failed'
+    | 'view_requests'
   detail?: string
   /** Кто из администраторов сделал (для действий после входа). */
   by?: string
@@ -280,4 +281,60 @@ export interface InviteInfo {
   /** otpauth://… - для QR-кода и открытия на телефоне. */
   uri: string
   expiresAt: ISODate
+}
+
+// ---------- запросы к модели ----------
+
+/** Картинка запроса: фото пользователя или результат генерации. Файл - по id (`AdminService.imageUrl`). */
+export interface RequestImage {
+  id: string
+  width: number
+  height: number
+}
+
+export type RequestKind = 'text' | 'vision' | 'image'
+/** Фильтр ленты: все, по виду запроса или только ошибки. */
+export type RequestsFilter = 'all' | RequestKind | 'error'
+
+/** Один запрос к модели: вопрос, ответ, картинки и цена. */
+export interface RequestEntry {
+  id: number
+  at: ISODate
+  userId: string
+  login: string
+  kind: RequestKind
+  tier: PlanTier
+  model: string
+  /** ok - ответ получен; error и refunded - запрос не списан; pending - ещё идёт. */
+  status: 'ok' | 'error' | 'refunded' | 'pending'
+  errorCode: string | null
+  tokensIn: number
+  tokensOut: number
+  costUsd: number
+  costRub: number
+  chatId: string | null
+  chatTitle: string | null
+  /** null: текст не найден (пользователь удалил чат или запрос старше связки с сообщениями). */
+  prompt: string | null
+  answer: string | null
+  /** Текст обрезан для панели (полностью - в чате пользователя). */
+  clipped: boolean
+  /** Ответ модели оборвался на лимите длины. */
+  truncated: boolean
+  photos: RequestImage[]
+  generated: RequestImage[]
+}
+
+export interface RequestsQuery {
+  /** Без userId - лента всех пользователей. */
+  userId?: string
+  filter?: RequestsFilter
+  /** Курсор: id последней записи предыдущей страницы. */
+  before?: number
+}
+
+export interface RequestsPage {
+  items: RequestEntry[]
+  /** Курсор следующей страницы или null. */
+  next: number | null
 }

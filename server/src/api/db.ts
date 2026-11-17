@@ -204,6 +204,39 @@ export const MIGRATIONS: string[] = [
   );
   ALTER TABLE payments ADD COLUMN receipt_email TEXT;
   `,
+  // 4: событие расхода знает свой вопрос и ответ (лента запросов в админке).
+  // Старые события связываются по времени: сообщение пользователя пишется сразу после резерва,
+  // а параллельных запросов у одного пользователя нет (busy). Ответ - первый ответ модели
+  // в том же чате после вопроса и до следующего вопроса; только для удачных запросов.
+  `
+  ALTER TABLE usage_events ADD COLUMN chat_id TEXT;
+  ALTER TABLE usage_events ADD COLUMN message_id TEXT;
+  ALTER TABLE usage_events ADD COLUMN reply_id TEXT;
+  CREATE INDEX usage_user_seq ON usage_events(user_id, id);
+  UPDATE usage_events SET message_id = (
+    SELECT m.id FROM messages m JOIN chats c ON c.id = m.chat_id
+    WHERE c.user_id = usage_events.user_id AND m.role = 'user'
+      AND m.created_at BETWEEN usage_events.created_at AND usage_events.created_at + 5000
+      AND NOT EXISTS (
+        SELECT 1 FROM usage_events e2 WHERE e2.user_id = usage_events.user_id
+          AND (e2.created_at > usage_events.created_at OR (e2.created_at = usage_events.created_at AND e2.id > usage_events.id))
+          AND e2.created_at <= m.created_at
+      )
+    ORDER BY m.created_at, m.rowid LIMIT 1
+  ) WHERE user_id IS NOT NULL;
+  UPDATE usage_events SET chat_id = (SELECT chat_id FROM messages WHERE id = usage_events.message_id) WHERE message_id IS NOT NULL;
+  UPDATE usage_events SET reply_id = (
+    SELECT a.id FROM messages q JOIN messages a ON a.chat_id = q.chat_id AND a.role = 'assistant'
+      AND (a.created_at > q.created_at OR (a.created_at = q.created_at AND a.rowid > q.rowid))
+    WHERE q.id = usage_events.message_id
+      AND NOT EXISTS (
+        SELECT 1 FROM messages n WHERE n.chat_id = q.chat_id AND n.role = 'user' AND n.id != q.id
+          AND (n.created_at > q.created_at OR (n.created_at = q.created_at AND n.rowid > q.rowid))
+          AND (n.created_at < a.created_at OR (n.created_at = a.created_at AND n.rowid < a.rowid))
+      )
+    ORDER BY a.created_at, a.rowid LIMIT 1
+  ) WHERE status = 'ok' AND message_id IS NOT NULL;
+  `,
 ]
 
 /** Миграции, пересоздающие таблицы: PRAGMA foreign_keys внутри транзакции не меняется, выключаем до неё. */

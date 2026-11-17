@@ -15,6 +15,8 @@ import type {
   ImagesReport,
   Overview,
   PaymentsReport,
+  RequestsPage,
+  RequestsQuery,
   UserDetail,
   UsersPage,
   UsersQuery,
@@ -30,6 +32,7 @@ import {
   paymentsReport,
   usersPage,
 } from '../../src/admin/demo/dataset.ts'
+import { DEMO_IMAGE_SVG, demoRequests, isDemoImage, requestsPageOf } from '../../src/admin/demo/requests.ts'
 
 export interface AdminRepo {
   overview(r: DateRange, s: AdminSettings): Promise<Overview>
@@ -40,12 +43,23 @@ export interface AdminRepo {
   users(q: UsersQuery, s: AdminSettings): Promise<UsersPage>
   user(id: string, s: AdminSettings): Promise<UserDetail | null>
   finance(r: DateRange, s: AdminSettings): Promise<FinanceReport>
+  /** Лента запросов к модели: вопрос, ответ, картинки, цена. */
+  requests(q: RequestsQuery, s: AdminSettings): Promise<RequestsPage>
+  /** Файл картинки запроса (фото пользователя или генерация) или null. */
+  image(id: string): Promise<{ mime: string; data: Buffer } | null>
 }
 
 export function demoRepo(): AdminRepo {
   let ds = buildDataset()
+  let feed = demoRequests(ds)
   // данные «живые»: раз в час пересчитываем относительно текущего времени
-  const fresh = () => (Date.now() - ds.now > 3_600_000 ? (ds = buildDataset()) : ds)
+  const fresh = () => {
+    if (Date.now() - ds.now > 3_600_000) {
+      ds = buildDataset()
+      feed = demoRequests(ds)
+    }
+    return ds
+  }
   return {
     overview: async (r, s) => overview(fresh(), r, s),
     analytics: async (r, s) => analyticsReport(fresh(), r, s),
@@ -55,6 +69,11 @@ export function demoRepo(): AdminRepo {
     users: async (q, s) => usersPage(fresh(), q, s),
     user: async (id, s) => userDetail(fresh(), id, s),
     finance: async (r, s) => financeReport(fresh(), r, s),
+    requests: async (q, s) => {
+      fresh()
+      return requestsPageOf(feed, q, s)
+    },
+    image: async (id) => (isDemoImage(id) ? { mime: 'image/svg+xml', data: Buffer.from(DEMO_IMAGE_SVG) } : null),
   }
 }
 

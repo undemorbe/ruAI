@@ -162,15 +162,16 @@ export function userDetail(ds: Dataset, userId: string, s: AdminSettings): UserD
   const sub = currentSub(ds, userId)
   const logins = loginsOf(ds)
   const from = Math.floor(ds.now / DAY) * DAY - 59 * DAY
+  // все 60 дней, включая пустые: на графике видны перерывы в активности
   const byDay = new Map<number, UserDetail['days'][number]>()
+  for (let day = from; day <= ds.now; day += DAY) byDay.set(day, { date: isoDay(day), requests: 0, usd: 0, generations: 0, errors: 0 })
   for (const x of own) {
-    if (x.day < from) continue
-    const d = byDay.get(x.day) ?? { date: isoDay(x.day), requests: 0, usd: 0, generations: 0, errors: 0 }
+    const d = byDay.get(x.day)
+    if (!d) continue
     d.requests += x.requests
     d.usd += x.textUsd + x.imageUsd
     d.generations += x.generations
     d.errors += Object.values(x.errors).reduce((a, b) => a + b, 0)
-    byDay.set(x.day, d)
   }
   return {
     user: userRow(ds, u, s, own),

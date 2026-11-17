@@ -6,7 +6,7 @@
  * блокировка перебора, сессия в HttpOnly-cookie, CSRF-проверка, журнал действий).
  */
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify'
-import type { AdminSettings, DateRange, PlanId, PlanTier, SubEdit, UserEdit, UsersQuery } from '../../src/admin/api/types.ts'
+import type { AdminSettings, DateRange, PlanId, PlanTier, RequestsFilter, SubEdit, UserEdit, UsersQuery } from '../../src/admin/api/types.ts'
 import { MODEL_ID_PATTERN } from '../../src/config/app.ts'
 import { checkSubEdit, checkUserEdit, MAX_NOTE } from '../../src/admin/edits.ts'
 import { checkRange, lastDays } from '../../src/admin/range.ts'
@@ -329,6 +329,41 @@ export function buildApp(cfg: Config, deps: Deps = {}) {
         const page = Math.min(10_000, Math.max(1, Math.floor(Number(req.query.page) || 1)))
         return r.users({ q: (req.query.q ?? '').slice(0, 100), sort, filter, page }, settings.settings())
       })
+
+      // ---------- запросы к модели ----------
+      // Содержимое переписки - персональные данные: первая страница каждой выборки пишется в журнал (только id).
+      const REQUESTS_QS = {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          user: { type: 'string', pattern: '^u_[A-Za-z0-9_-]{20}$' },
+          filter: { enum: ['all', 'text', 'vision', 'image', 'error'] },
+          before: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        },
+      }
+      api.get<{ Querystring: { user?: string; filter?: RequestsFilter; before?: number } }>(
+        '/requests',
+        { schema: { querystring: REQUESTS_QS } },
+        async (req, reply) => {
+          const r = needRepo(reply)
+          if (!r) return
+          const { user, filter = 'all', before } = req.query
+          if (!before) audit(req, 'view_requests', `${user ?? 'все'} ${filter}`)
+          return r.requests({ ...(user ? { userId: user } : {}), filter, ...(before ? { before } : {}) }, settings.settings())
+        },
+      )
+      api.get<{ Params: { id: string } }>(
+        '/images/:id',
+        { schema: { params: { type: 'object', required: ['id'], properties: { id: { type: 'string', pattern: '^img_[A-Za-z0-9_-]{20}$' } } } } },
+        async (req, reply) => {
+          const r = needRepo(reply)
+          if (!r) return
+          const img = await r.image(req.params.id)
+          if (!img) return reply.code(404).send({ message: 'Не найдено' })
+          // только <img> на странице панели: CSP и nosniff выставляет общий onSend
+          return reply.header('Content-Type', img.mime).header('Content-Disposition', 'inline').send(img.data)
+        },
+      )
 
       // ---------- действия с пользователями ----------
       const USER_ID = { type: 'object', required: ['id'], properties: { id: { type: 'string', pattern: '^u_[A-Za-z0-9_-]{20}$' } } }

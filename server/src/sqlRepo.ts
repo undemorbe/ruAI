@@ -28,6 +28,7 @@ import type { Db } from './api/db.ts'
 import type { ImageFiles } from './api/images.ts'
 import { activeSub } from './api/ledger.ts'
 import { deleteUser } from './api/sweep.ts'
+import { requestImage, requestsPage } from './requests.ts'
 import type { AdminRepo } from './store.ts'
 
 const DAY = 86_400_000
@@ -194,6 +195,8 @@ export function sqlRepo(db: Db, files: ImageFiles, now: () => number = Date.now)
     users: async (q, s) => usersPage(ds(), q, s),
     user: async (id, s) => (exists(id) ? userDetail(ds(), id, s) : null),
     finance: async (r, s) => financeReport(ds(r), r, s),
+    requests: async (q, s) => requestsPage(db, q, s),
+    image: async (id) => requestImage(db, files, id),
     async grant(userId, tier, planId) {
       if (!exists(userId)) return false
       grantSubscription(db, { userId, tier, planId, now: now() })

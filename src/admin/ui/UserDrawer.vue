@@ -5,6 +5,7 @@ import { checkSubEdit, checkUserEdit, MAX_NOTE } from '../edits'
 import { date, dateTime, num, PLAN_LABEL, rub, TIER_SHORT, usd } from '../format'
 import { DAY, isoDay } from '../range'
 import { dataVersion, handle } from '../state'
+import RequestFeed from './RequestFeed.vue'
 
 /**
  * Карточка пользователя: подписка со счётчиками и её правка, профиль, доступ, история.
@@ -276,10 +277,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', esc))
         <!-- история -->
         <section class="ud__sec">
           <h3>Активность за 60 дней</h3>
-          <p v-if="!d.days.length" class="muted">Запросов не было.</p>
+          <p v-if="!d.days.some((x) => x.requests || x.errors)" class="muted">Запросов не было.</p>
           <div v-else class="ud__act" role="img" :aria-label="`Запросы по дням, максимум ${actMax}`">
             <i v-for="x in d.days" :key="x.date" :title="`${x.date}: ${x.requests} запр., ${usd(x.usd, 3)}${x.errors ? `, ошибок ${x.errors}` : ''}`" :style="{ height: `${Math.max(4, (x.requests / actMax) * 100)}%` }"></i>
           </div>
+        </section>
+
+        <section class="ud__sec">
+          <h3>Запросы к модели</h3>
+          <RequestFeed :user-id="id" />
         </section>
 
         <section class="ud__sec">

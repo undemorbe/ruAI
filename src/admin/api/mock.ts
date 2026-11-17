@@ -1,5 +1,6 @@
 import { analyticsReport, userDetail } from '../demo/analytics'
 import { apiReport, buildDataset, currentSub, DEMO_PLANS, defaultAdminSettings, financeReport, imagesReport, overview, paymentsReport, usersPage } from '../demo/dataset'
+import { DEMO_IMAGE_SVG, demoRequests, requestsPageOf } from '../demo/requests'
 import { checkSubEdit, checkUserEdit, cleanNote, expiryOf } from '../edits'
 import { DAY } from '../range'
 import type { AdminService } from './contract'
@@ -15,6 +16,8 @@ import type { AdminSettings, AuditEntry } from './types'
 const SETTINGS_KEY = 'ruai.mock.admin.settings'
 const SESSION_KEY = 'ruai.mock.admin.session'
 const ds = buildDataset()
+const feed = demoRequests(ds)
+const DEMO_IMAGE_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(DEMO_IMAGE_SVG)}`
 const audit: AuditEntry[] = []
 /** Демо-приглашение: #/invite/demo-invite-token-0000000000 (код 000000). */
 const MOCK_INVITE = 'demo-invite-token-0000000000'
@@ -99,6 +102,12 @@ export const mockAdmin: AdminService = {
       return s
     }, 250),
   audit: () => guarded(() => audit.slice(0, 100), 80),
+  requests: (q) =>
+    guarded(() => {
+      if (!q.before) log('view_requests', `${q.userId ?? 'все'} ${q.filter ?? 'all'}`)
+      return requestsPageOf(feed, q, loadSettings())
+    }, 160),
+  imageUrl: () => DEMO_IMAGE_URL,
   user: (id) => guarded(() => userDetail(ds, userOf(id).id, loadSettings())!),
   grant: (userId, tier, planId) =>
     guarded(() => {

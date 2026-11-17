@@ -518,6 +518,8 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
             } else db.run('UPDATE chats SET updated_at = ? WHERE id = ?', t0, chatId)
             db.run("INSERT INTO messages (id, chat_id, role, content, created_at) VALUES (?, ?, 'user', ?, ?)", mid, chatId, content, t0)
             for (const ph of photos) db.run('UPDATE images SET message_id = ?, chat_id = ? WHERE id = ?', mid, chatId, ph!.id)
+            // лента запросов в админке: событие расхода знает свой вопрос
+            db.run('UPDATE usage_events SET chat_id = ?, message_id = ? WHERE id = ?', chatId, mid, res.eventId)
           })
           const chat = chatOf(u.id, chatId!)!
 
@@ -677,6 +679,7 @@ export function buildApiApp(cfg: ApiConfig, deps: ApiDeps) {
                 truncated ? 1 : 0,
               )
               for (const im of produced) db.run('UPDATE images SET message_id = ? WHERE id = ?', replyId, im.id)
+              db.run('UPDATE usage_events SET reply_id = ? WHERE id = ?', replyId, res.eventId)
               db.run('UPDATE chats SET updated_at = ? WHERE id = ?', t, chatId)
             })
             message = {

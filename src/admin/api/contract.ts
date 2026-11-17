@@ -12,6 +12,8 @@ import type {
   InviteInfo,
   Overview,
   PaymentsReport,
+  RequestsPage,
+  RequestsQuery,
   SubEdit,
   UserDetail,
   UserEdit,
@@ -43,6 +45,10 @@ export interface AdminService {
   settings(): Promise<AdminSettings>
   saveSettings(s: AdminSettings): Promise<AdminSettings>
   audit(): Promise<AuditEntry[]>
+  /** Лента запросов к модели (вопрос, ответ, картинки, цена); с userId - одного пользователя. */
+  requests(q: RequestsQuery): Promise<RequestsPage>
+  /** Адрес картинки запроса для <img> (сессия - в cookie). */
+  imageUrl(id: string): string
   /** Карточка: подписка со счётчиками, платежи, история, активность. */
   user(userId: string): Promise<UserDetail>
   /** Выдать подписку (без оплаты, платёж 0 ₽ в отчётах). */

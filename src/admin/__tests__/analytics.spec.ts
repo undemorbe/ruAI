@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { analyticsReport, userDetail } from '../demo/analytics'
-import { buildDataset, defaultAdminSettings, overview, usersPage } from '../demo/dataset'
+import { apiReport, buildDataset, defaultAdminSettings, overview, usersPage } from '../demo/dataset'
 import { lastDays } from '../range'
 
 const NOW = Date.UTC(2026, 10, 14, 12)
@@ -47,8 +47,22 @@ describe('аналитика', () => {
     const d = userDetail(ds, row.id, s)!
     expect(d.user).toEqual(row)
     expect(d.payments.every((p) => p.userId === row.id)).toBe(true)
-    expect(d.days.length).toBeLessThanOrEqual(60)
+    expect(d.days.length).toBe(60)
+    // дни подряд, без пропусков: график показывает и дни без запросов
+    for (let i = 1; i < d.days.length; i++) expect(Date.parse(d.days[i]!.date) - Date.parse(d.days[i - 1]!.date)).toBe(86_400_000)
+    expect(d.days.at(-1)!.date).toBe(new Date(NOW).toISOString().slice(0, 10))
     if (d.sub) expect(d.sub.totalUsed).toBe(row.requestsUsed)
     expect(userDetail(ds, 'u_nope', s)).toBeNull()
+  })
+})
+
+describe('доля ошибок API', () => {
+  it('считается от всех попыток и не превышает 100 %', () => {
+    const now = Date.UTC(2026, 10, 14, 12)
+    const day = Math.floor(now / 86_400_000) * 86_400_000
+    const one = { ...buildDataset(now), usage: [{ userId: 'u1', day, tier: 'text' as const, requests: 1, tokensIn: 0, tokensOut: 0, textUsd: 0, imageUsd: 0, generations: 0, errors: { upstream: 3 } }] }
+    const a = apiReport(one, lastDays(7, now), s)
+    expect(a.errors.count).toBe(3)
+    expect(a.errors.rate).toBe(75)
   })
 })

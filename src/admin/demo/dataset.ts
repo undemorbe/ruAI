@@ -414,7 +414,8 @@ export function apiReport(ds: Dataset, r: DateRange, s: AdminSettings): ApiRepor
     ],
     errors: {
       count: errCount,
-      rate: requests ? round((errCount / requests) * 100, 2) : 0,
+      // доля от всех попыток: удачные + ошибки (иначе при сбоях модели доля превышает 100 %)
+      rate: requests + errCount ? round((errCount / (requests + errCount)) * 100, 2) : 0,
       byCode: [...codes].map(([code, count]) => ({ code, count })).sort((a, b) => b.count - a.count),
     },
     topUsers: [...perUser]

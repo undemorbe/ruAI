@@ -20,6 +20,7 @@ const LABEL: Record<AuditEntry['action'], string> = {
   logout_user: 'Закрыты входы пользователя',
   admin_added: 'Добавлен администратор',
   invite_failed: 'Неверная ссылка-приглашение',
+  view_requests: 'Просмотр запросов пользователей',
 }
 </script>
 

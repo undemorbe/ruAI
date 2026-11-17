@@ -64,6 +64,13 @@ export const httpAdmin: AdminService = {
   settings: () => get('settings'),
   saveSettings: (s) => send('settings', 'PUT', s),
   audit: () => get('audit'),
+  requests: (q) => {
+    const p = new URLSearchParams({ filter: q.filter ?? 'all' })
+    if (q.userId) p.set('user', q.userId)
+    if (q.before) p.set('before', String(q.before))
+    return get(`requests?${p}`)
+  },
+  imageUrl: (id) => `${BASE}images/${encodeURIComponent(id)}`,
   user: (id) => get(`users/${encodeURIComponent(id)}`),
   editSubscription: (id, edit) => send(`users/${encodeURIComponent(id)}/subscription`, 'POST', edit),
   editUser: (id, edit) => send(`users/${encodeURIComponent(id)}/profile`, 'POST', edit),

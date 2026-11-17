@@ -21,3 +21,7 @@ export const ERROR_LABEL: Record<string, string> = {
   internal: 'Внутренняя ошибка сервера',
   interrupted: 'Прервано перезапуском сервера',
 }
+/** Цена одного запроса: копейки видны (запросы стоят доли рубля). */
+export const rubCents = (n: number) => `${n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₽`
+export const KIND_LABEL = { text: 'Текст', vision: 'Фото', image: 'Генерация' } as const
+export const STATUS_LABEL = { ok: 'ответ получен', error: 'ошибка, не списан', refunded: 'возврат, не списан', pending: 'в процессе' } as const

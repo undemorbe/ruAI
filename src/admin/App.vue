@@ -13,6 +13,7 @@ import AnalyticsView from './views/AnalyticsView.vue'
 import PaymentsView from './views/PaymentsView.vue'
 import ApiView from './views/ApiView.vue'
 import ImagesView from './views/ImagesView.vue'
+import RequestsView from './views/RequestsView.vue'
 import UsersView from './views/UsersView.vue'
 import FinanceView from './views/FinanceView.vue'
 import SettingsView from './views/SettingsView.vue'
@@ -26,6 +27,7 @@ const SECTIONS: { id: string; title: string; view: Component; period: boolean }[
   { id: 'api', title: 'Аналитика API', view: ApiView, period: true },
   { id: 'images', title: 'Изображения', view: ImagesView, period: true },
   { id: 'users', title: 'Пользователи', view: UsersView, period: false },
+  { id: 'requests', title: 'Запросы', view: RequestsView, period: false },
   { id: 'finance', title: 'Финансы', view: FinanceView, period: true },
   { id: 'settings', title: 'Настройки', view: SettingsView, period: false },
   { id: 'security', title: 'Безопасность', view: SecurityView, period: false },
